@@ -9,5 +9,6 @@ pub struct Config {
     pub port: u16,
     pub json_value: Mutex<Value>,
     pub latency: u64,
-    pub sort_rules: HashMap<String, (String, String)>
+    pub sort_rules: HashMap<String, (String, String)>,
+    pub paginate: u64,
 }
