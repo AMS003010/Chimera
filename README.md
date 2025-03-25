@@ -1,25 +1,30 @@
 # Chimera - ⚡ A Fast & Powerful JSON Server built with Rust 🦀
 
 ## 🔱 Introduction
-Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-web. It allows you to serve JSON files as APIs with sorting, latency simulation, and route-based retrieval. Ideal for prototyping, mock APIs, or rapid development.
+
+Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-web. It allows you to serve JSON files as APIs with sorting, pagination, simulated latency, and route-based retrieval. Ideal for prototyping, mock APIs, or rapid development.
 
 ## 🚀 Features
+
 - **📂 Serve JSON as an API** – Load any JSON file and serve it as structured API endpoints.
 - **📌 Route-based Data Retrieval** – Fetch data by route and ID.
-- **⚡ Ultra-Fast Performance** – Leveraging Rust and Actix-web for speed and efficiency.
 - **📊 Sorting Support** – Sort entries dynamically based on attributes.
+- **📑 Pagination Support** – Limit the number of records per request.
 - **🐌 Simulated Latency** – Mimic real-world API delays for better testing.
-- **🛠️ Easy Configuration** – Set up ports, file paths, latency, and sorting options via CLI.
+- **⚡ Ultra-Fast Performance** – Leveraging Rust and Actix-web for speed and efficiency.
+- **🛠️ Easy Configuration** – Set up ports, file paths, latency, sorting, and pagination via CLI.
 
 ## 📦 Installation
 
 ### Prerequisites
+
 - Rust (latest stable version)
 - Cargo package manager
 
 ### Clone and Build
+
 ```sh
-git clone https://github.com/AMS003010/chimera.git
+git clone https://github.com/your-repo/chimera.git
 cd chimera
 cargo build --release
 ```
@@ -27,28 +32,33 @@ cargo build --release
 ## 🏗️ Usage
 
 ### Start the Server
+
 ```sh
-./chimera --path data.json --port 8080
+./chimera --path data.json
 ```
 
 ### Available Options
-| Flag | Description |
-|------|-------------|
-| `--path <file>` | Path to the JSON file (Required) |
-| `--port <port>` | Specify the server port (Default: 8080) |
-| `--latency <ms>` | Simulated latency in milliseconds (Optional) |
-| `--sort <route> <asc|desc> <attribute>` | Sort route data dynamically |
+
+| Flag             | Description                                      |
+|-----------------|--------------------------------------------------|
+| `--path <file>`  | Path to the JSON file (Required)               |
+| `--port <port>`  | Specify the server port (Default: 8080)        |
+| `--latency <ms>` | Simulated latency in milliseconds (Optional)   |
+| `--sort <route> <asc / desc> <attribute>` | Sort route data dynamically |
+| `--page <num>`   | Paginate GET responses (Default: 0 - No Limit) |
 
 ## 📡 API Endpoints
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| `GET` | `/ping` | Health check (`Pong 🏓`) |
-| `GET` | `/{route}` | Retrieve all data under a route |
-| `GET` | `/{route}/{id}` | Retrieve a specific record by ID |
-| `DELETE` | `/{route}` | Delete all records under a route |
-| `DELETE` | `/{route}/{id}` | Delete a specific record by ID |
+
+| Method   | Endpoint        | Description                      |
+| -------- | --------------- | -------------------------------- |
+| `GET`    | `/ping`         | Health check (`Pong 🏓`)         |
+| `GET`    | `/{route}`      | Retrieve all data under a route  |
+| `GET`    | `/{route}/{id}` | Retrieve a specific record by ID |
+| `DELETE` | `/{route}`      | Delete all records under a route |
+| `DELETE` | `/{route}/{id}` | Delete a specific record by ID   |
 
 ## 📜 Example JSON File (`data.json`)
+
 ```json
 {
   "users": [
@@ -62,9 +72,14 @@ cargo build --release
 ```
 
 ## 🌟 Why Chimera?
+
 - **Lightweight & Fast** – Runs efficiently with minimal resource usage.
 - **Highly Configurable** – Tailor it to your needs with CLI flags.
 - **Built for Developers** – Ideal for testing, prototyping, and mock API creation.
+
+## 📜 License
+
+Chimera is licensed under the MIT License.
 
 ---
 
