@@ -34,8 +34,8 @@ Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v
 ```sh
 git clone https://github.com/your-repo/chimera.git
 cd chimera
-cargo build --release
-.\chimera --path data.json
+cargo install --release
+chimera --path data.json
 ```
 
 ## 🏗️ Usage
