@@ -16,17 +16,26 @@ Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-we
 
 ## 📦 Installation
 
+### On Windows
+
+On Powershell
+```
+Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.1.0/chimera.exe" -OutFile "chimera.exe"
+.\chimera.exe --path data.json
+```
+
+### On Linux and Mac
+
 ### Prerequisites
 
 - Rust (latest stable version)
 - Cargo package manager
 
-### Clone and Build
-
 ```sh
 git clone https://github.com/your-repo/chimera.git
 cd chimera
 cargo build --release
+.\chimera --path data.json
 ```
 
 ## 🏗️ Usage
