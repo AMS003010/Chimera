@@ -1,4 +1,4 @@
-# Chimera - ⚡ A Fast & Powerful JSON Server built with Rust 🦀
+# Chimera - A Fast ⚡ & Powerful JSON Server built with Rust 🦀
 
 ## 🔱 Introduction
 
