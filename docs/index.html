@@ -8,12 +8,12 @@
     <link rel='stylesheet' type='text/css' media='screen' href='main.css'>
     <script src='main.js'></script>
 </head>
-<body class="w-screen h-screen bg-gradient-to-br flex flex-col justify-between items-center from-gray-800 to-gray-700 p-3">
+<body class="w-screen h-max md:h-screen bg-gradient-to-br flex flex-col justify-between items-center from-gray-800 to-gray-700 p-3">
     <!-- <div class="text-xl flex justify-end">
         <div class="border-gray-400 border-[2px] p-2 rounded-full">🚀</div>
     </div> -->
     <div>
-        <div class="flex justify-center items-center">
+        <div class="flex flex-col md:flex-row justify-center items-center">
             <div>
                 <img
                     src="./assets/chimera-json-server.png"
@@ -27,7 +27,7 @@
             </div>
         </div>
     </div>
-    <div class="get-jetbrains">
+    <div class="get-jetbrains scale-50 md:scale-100">
         <div class="flex justify-start gap-2 w-[40rem] rounded-t-2xl bg-[#1f1f23] px-4 py-2">
             <div class="w-2.5 h-2.5 bg-[#ed6a5e] rounded-full cursor-pointer hover:opacity-65"></div>
             <div class="w-2.5 h-2.5 bg-[#f4bd50] rounded-full cursor-pointer hover:opacity-65"></div>
@@ -44,7 +44,7 @@
             <div class="text-gray-400">🔱 Chimera JSON Server running at <span class="text-gray-200 hover:border-b-2 cursor-pointer">http://127.0.0.1:6000</span></div>
         </div>
     </div>
-    <div class="get-jetbrains flex justify-between items-center w-[100%] px-4 pb-4">
+    <div class="get-jetbrains flex flex-col md:flex-row gap-4 justify-between items-center w-[100%] px-4 pb-4">
         <div class="flex justify-between items-center gap-2">
             <div class="text-gray-400">v0.1.0</div>
             <div class="rounded-full px-2.5 py-0.5 bg-red-400 text-red-900 text-sm">latest</div>
