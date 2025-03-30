@@ -512,7 +512,7 @@ async fn main() -> Result<(), IOError> {
 ╔═╗┬ ┬┬┌┬┐┌─┐┬─┐┌─┐
 ║  ├─┤││││├┤ ├┬┘├─┤
 ╚═╝┴ ┴┴┴ ┴└─┘┴└─┴ ┴
-v0.1.0
+v0.2.0
     ");
 
     if let Err(e) = run_actix_server().await {
