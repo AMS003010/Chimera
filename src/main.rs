@@ -2,10 +2,12 @@ use std::io::Error as IOError;
 use std::process;
 use std::collections::HashMap;
 use std::{fs, sync::Mutex};
-use actix_web::{web, App, get, delete, Responder, HttpServer, HttpResponse};
+use actix_web::{web, App, get, post, delete, Responder, HttpServer, HttpResponse};
 use tokio::time::{sleep, Duration};
 use clap::{Arg, Command};
 use serde_json::Value;
+use colored::*;
+use chrono::Local;
 
 use internal::port::find_available_port;
 use internal::chimera::Config;
@@ -20,11 +22,25 @@ async fn ping_pong() -> impl Responder {
 }
 
 #[get("/{route}")]
-async fn get_data(path: web::Path<String>, data: web::Data<Config>) -> impl Responder {
+async fn get_data(path: web::Path<String>, data: web::Data<Config>, req: actix_web::HttpRequest) -> impl Responder {
     sleep(Duration::from_millis(data.latency)).await;
+
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = req.path();
+
     let json_data = match data.json_value.try_lock() {
         Ok(lock) => lock,
-        Err(_) => return HttpResponse::InternalServerError().body("Server is busy, try again later."),
+        Err(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 500 ".bold().white().on_green(),
+                date_time.italic().dimmed(),
+                " GET    ".bright_white().on_green(),
+                requested_path.italic()
+            );
+            return HttpResponse::InternalServerError().body("Server is busy, try again later.")
+        },
     };
 
     let route = path.into_inner();
@@ -58,20 +74,57 @@ async fn get_data(path: web::Path<String>, data: web::Data<Config>) -> impl Resp
                         );
                     }
                 }
+                println!(
+                    "|{}| {} |{}| {}",
+                    " 200 ".bold().white().on_blue(),
+                    date_time.italic().dimmed(),
+                    " GET    ".bright_white().on_green(),
+                    requested_path.italic()
+                );
                 return HttpResponse::Ok().json(sorted_data);
             }
+            println!(
+                "|{}| {} |{}| {}",
+                " 200 ".bold().white().on_blue(),
+                date_time.italic().dimmed(),
+                " GET    ".bright_white().on_green(),
+                requested_path.italic()
+            );
             return HttpResponse::Ok().json(sorted_data);
         }
-        None => HttpResponse::NotFound().body("Route not found"),
+        None => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 404 ".bold().white().on_red(),
+                date_time.italic().dimmed(),
+                " GET    ".bright_white().on_green(),
+                requested_path.italic()
+            );
+            HttpResponse::NotFound().body("Route not found")
+        },
     }
 }
 
 #[get("/{route}/{id}")]
-async fn get_data_by_id(path: web::Path<(String, String)>, data: web::Data<Config>) -> impl Responder {
+async fn get_data_by_id(path: web::Path<(String, String)>, data: web::Data<Config>, req: actix_web::HttpRequest) -> impl Responder {
     sleep(Duration::from_millis(data.latency)).await;
+
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = req.path();
+
     let json_data = match data.json_value.try_lock() {
         Ok(lock) => lock,
-        Err(_) => return HttpResponse::InternalServerError().body("Server is busy, try again later."),
+        Err(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 500 ".bold().white().on_green(),
+                date_time.italic().dimmed(),
+                " GET    ".bright_white().on_green(),
+                requested_path.italic()
+            );
+            return HttpResponse::InternalServerError().body("Server is busy, try again later.")
+        },
     };
 
     let (route, id) = path.into_inner();
@@ -84,23 +137,72 @@ async fn get_data_by_id(path: web::Path<(String, String)>, data: web::Data<Confi
             });
 
             match record {
-                Some(record) => HttpResponse::Ok().json(record),
-                None => HttpResponse::NotFound().body("Record not found, check `id`."),
+                Some(record) => {
+                    println!(
+                        "|{}| {} |{}| {}",
+                        " 200 ".bold().white().on_blue(),
+                        date_time.italic().dimmed(),
+                        " GET    ".bright_white().on_green(),
+                        requested_path.italic()
+                    );
+                    HttpResponse::Ok().json(record)
+                },
+                None => {
+                    println!(
+                        "|{}| {} |{}| {}",
+                        " 404 ".bold().white().on_red(),
+                        date_time.italic().dimmed(),
+                        " GET    ".bright_white().on_green(),
+                        requested_path.italic()
+                    );
+                    HttpResponse::NotFound().body("Record not found, check `id`.")
+                },
             }
         }
-        Some(_) => HttpResponse::BadRequest().body("Route exists but is not an array."),
-        None => HttpResponse::NotFound().body("Route not found."),
+        Some(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 400 ".bold().white().on_yellow(),
+                date_time.italic().dimmed(),
+                " GET    ".bright_white().on_green(),
+                requested_path.italic()
+            );
+            HttpResponse::BadRequest().body("Route exists but is not an array.")
+        },
+        None => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 404 ".bold().white().on_red(),
+                date_time.to_string().italic().dimmed(),
+                " GET    ".bright_white().on_green(),
+                requested_path.italic()
+            );
+            HttpResponse::NotFound().body("Route not found.")
+        },
     }
 }
 
 #[delete("/{route}")]
-async fn delete_data(path: web::Path<String>,data: web::Data<Config>) -> impl Responder {
+async fn delete_data(path: web::Path<String>,data: web::Data<Config>, req: actix_web::HttpRequest) -> impl Responder {
 
     sleep(Duration::from_millis(data.latency)).await;
 
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = req.path();
+
     let mut json_data = match data.json_value.try_lock() {
         Ok(lock) => lock, 
-        Err(_) => return HttpResponse::InternalServerError().body("Server is busy, try again later."),
+        Err(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 500 ".bold().white().on_green(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
+            return HttpResponse::InternalServerError().body("Server is busy, try again later.")
+        },
     };
 
     let route = path.into_inner();
@@ -108,27 +210,74 @@ async fn delete_data(path: web::Path<String>,data: web::Data<Config>) -> impl Re
     match json_data.get_mut(&route) {
         Some(Value::Array(arr)) => {
             arr.clear();
+            println!(
+                "|{}| {} |{}| {}",
+                " 200 ".bold().white().on_blue(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
             HttpResponse::Ok().body("All records deleted successfully")
         }
-        Some(_) => HttpResponse::BadRequest().body("Route exists but is not an array."),
-        None => HttpResponse::NotFound().body("Route not found."),
+        Some(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 400 ".bold().white().on_yellow(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
+            HttpResponse::BadRequest().body("Route exists but is not an array.")
+        },
+        None => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 404 ".bold().white().on_red(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
+            HttpResponse::NotFound().body("Route not found.")
+        },
     }
 }
 
 #[delete("/{route}/{id}")]
-async fn delete_data_by_id(path: web::Path<(String, String)>,data: web::Data<Config>) -> impl Responder {
+async fn delete_data_by_id(path: web::Path<(String, String)>,data: web::Data<Config>, req: actix_web::HttpRequest) -> impl Responder {
 
     sleep(Duration::from_millis(data.latency)).await;
+
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = req.path();
     
     let mut json_data = match data.json_value.try_lock() {
         Ok(lock) => lock, 
-        Err(_) => return HttpResponse::InternalServerError().body("Server is busy, try again later."),
+        Err(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 500 ".bold().white().on_green(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
+            return HttpResponse::InternalServerError().body("Server is busy, try again later.")
+        },
     };
 
     let (route, id) = path.into_inner();
     let _id = match id.parse::<i64>() {
         Ok(value) => value,
-        Err(_) => return HttpResponse::BadRequest().body("Invalid ID format"),
+        Err(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 400 ".bold().white().on_yellow(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
+            return HttpResponse::BadRequest().body("Invalid ID format")
+        },
     };
 
     match json_data.get_mut(&route) {
@@ -138,16 +287,47 @@ async fn delete_data_by_id(path: web::Path<(String, String)>,data: web::Data<Con
             arr.retain(|item| item.get("id").and_then(Value::as_i64) != Some(_id));
 
             if arr.len() < initial_len {
+                println!(
+                    "|{}| {} |{}| {}",
+                    " 200 ".bold().white().on_blue(),
+                    date_time.italic().dimmed(),
+                    " DELETE ".bright_white().on_red(),
+                    requested_path.italic()
+                );
                 HttpResponse::Ok().body("Record deleted successfully")
             } else {
+                println!(
+                    "|{}| {} |{}| {}",
+                    " 404 ".bold().white().on_red(),
+                    date_time.italic().dimmed(),
+                    " DELETE ".bright_white().on_red(),
+                    requested_path.italic()
+                );
                 HttpResponse::NotFound().body("Record not found, check `id`.")
             }
         }
-        Some(_) => HttpResponse::BadRequest().body("Route exists but is not an array."),
-        None => HttpResponse::NotFound().body("Route not found."),
+        Some(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 400 ".bold().white().on_yellow(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
+            HttpResponse::BadRequest().body("Route exists but is not an array.")
+        },
+        None => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 404 ".bold().white().on_red(),
+                date_time.italic().dimmed(),
+                " DELETE ".bright_white().on_red(),
+                requested_path.italic()
+            );
+            HttpResponse::NotFound().body("Route not found.")
+        },
     }
 }
-
 
 async fn run_actix_server() -> Result<(), IOError> {
     
@@ -228,7 +408,7 @@ async fn run_actix_server() -> Result<(), IOError> {
         paginate: pagination_factor,
     });
 
-    println!("🔱 Chimera JSON Server running at http://127.0.0.1:{}", final_port);
+    println!("🔱 Chimera JSON Server running at http://127.0.0.1:{}\n", final_port);
 
     let server = HttpServer::new(move || {
         App::new()
@@ -236,6 +416,7 @@ async fn run_actix_server() -> Result<(), IOError> {
             .route("/", web::get().to(ping_pong))
             .service(get_data)
             .service(get_data_by_id)
+            .service(add_data)
             .service(delete_data)
             .service(delete_data_by_id)
     })
