@@ -329,6 +329,83 @@ async fn delete_data_by_id(path: web::Path<(String, String)>,data: web::Data<Con
     }
 }
 
+#[post("/{route}")]
+async fn add_data(path: web::Path<String>, body: web::Json<Value>, data: web::Data<Config>, req: actix_web::HttpRequest) -> impl Responder {
+
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = req.path();
+    let route = path.into_inner();
+    let new_entry = body.into_inner();
+
+    let mut json_data = match data.json_value.try_lock() {
+        Ok(lock) => lock,
+        Err(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 500 ".bold().white().on_green(),
+                date_time.italic().dimmed(),
+                " POST   ".bright_red().on_white(),
+                requested_path.italic()
+            );
+            return HttpResponse::InternalServerError().body("Server is busy, try again later.")
+        },
+    };
+
+    match new_entry {
+        Value::Object(obj) => {
+            match json_data.as_object_mut() {
+                Some(map) => {
+                    if let Some(Value::Array(arr)) = map.get_mut(&route) {
+                        arr.push(Value::Object(obj.clone()));
+                    } else {
+                        map.insert(route.clone(), Value::Array(vec![Value::Object(obj.clone())]));
+                    }
+
+                    println!(
+                        "|{}| {} |{}| {}",
+                        " 201 ".bold().white().on_cyan(),
+                        date_time.italic().dimmed(),
+                        " POST   ".bright_red().on_white(),
+                        requested_path.italic()
+                    );
+                    HttpResponse::Created().json(obj)
+                }
+                None => {
+                    println!(
+                        "|{}| {} |{}| {}",
+                        " 500 ".bold().white().on_red(),
+                        date_time.italic().dimmed(),
+                        " POST   ".bright_red().on_white(),
+                        requested_path.italic()
+                    );
+                    HttpResponse::InternalServerError().body("Internal JSON structure error.")
+                }
+            }
+        }
+        Value::Array(_) => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 400 ".bold().white().on_yellow(),
+                date_time.italic().dimmed(),
+                " POST   ".bright_red().on_white(),
+                requested_path.italic()
+            );
+            HttpResponse::BadRequest().body("Cannot post an array. Send an object instead.")
+        }
+        _ => {
+            println!(
+                "|{}| {} |{}| {}",
+                " 400 ".bold().white().on_yellow(),
+                date_time.italic().dimmed(),
+                " POST   ".bright_red().on_white(),
+                requested_path.italic()
+            );
+            HttpResponse::BadRequest().body("Body has illegal JSON format.")
+        }
+    }
+}
+
 async fn run_actix_server() -> Result<(), IOError> {
     
     let matches = Command::new("Chimera - JSoN SeRVeR")
