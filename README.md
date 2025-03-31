@@ -20,7 +20,7 @@ Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-we
 
 On Powershell
 ```
-Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.2.0/chimera.exe" -OutFile "chimera.exe"
+Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.2.0/chimera-windows.exe" -OutFile "chimera.exe"
 .\chimera.exe --path data.json
 ```
 
