@@ -18,9 +18,13 @@ Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-we
 
 ### On Windows
 
-On Powershell
+On Powershell (Run as Administer)
 ```
 Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.2.0/chimera-windows.exe" -OutFile "chimera.exe"
+```
+
+On Powershell (non-privileged)
+```
 .\chimera.exe --path data.json
 ```
 
@@ -57,6 +61,7 @@ chmod 777 chimera
 | `GET`    | `/ping`         | Health check (`Pong 🏓`)         |
 | `GET`    | `/{route}`      | Retrieve all data under a route  |
 | `GET`    | `/{route}/{id}` | Retrieve a specific record by ID |
+| `POST`   | `/{route}`      | Add a record under a route       |
 | `DELETE` | `/{route}`      | Delete all records under a route |
 | `DELETE` | `/{route}/{id}` | Delete a specific record by ID   |
 
@@ -87,7 +92,7 @@ Chimera is licensed under the MIT License.
 ---
 
 ## 👨‍💻 Maintainers
-This project is maintained by Abhijith M S (AMS003010).
+This project is maintained by [@AMS003010](https://github.com/AMS003010).
 
 ---
 
