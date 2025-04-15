@@ -398,6 +398,8 @@ dependencies = [
  "chrono",
  "clap",
  "colored",
+ "fake",
+ "rand",
  "serde",
  "serde_json",
  "thiserror",
@@ -550,6 +552,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "deunicode"
+version = "1.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc55fe0d1f6c107595572ec8b107c0999bb1a2e0b75e37429a4fb0d6474a0e7d"
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -584,6 +592,16 @@ name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
+name = "fake"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f5f203b70a419cb8880d1cfe6bebe488add0a0307d404e9f24021e5fd864b80"
+dependencies = [
+ "deunicode",
+ "rand",
+]
 
 [[package]]
 name = "flate2"

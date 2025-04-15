@@ -11,14 +11,16 @@ use chrono::Local;
 
 use internal::port::find_available_port;
 use internal::chimera::Config;
+use internal::json_data_generate::{JsonDataGeneratorSchema, generate_json_from_schema};
 
 mod internal {
     pub mod chimera;
     pub mod port;
+    pub mod json_data_generate;
 }
 
 async fn ping_pong() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html").body("Pong 🏓")
+    HttpResponse::Ok().content_type("text/html").body("🐉 Hisss....")
 }
 
 #[get("/{route}")]
@@ -441,7 +443,12 @@ async fn run_actix_server() -> Result<(), IOError> {
             .long("page")
             .num_args(1)
             .default_value("0")
-            .help("Paginate records in the GET request"))        
+            .help("Paginate records in the GET request"))
+        .arg(Arg::new("auto_generate_data")
+            .short('X')
+            .long("auto_generate_data")
+            .num_args(0)
+            .help("Auto generate data without a .json sample file. A route schema .json file should be passed to --path"))
         .get_matches();
 
     let json_file_path = matches.get_one::<String>("path").expect("Missing path argument").to_string();
@@ -449,22 +456,36 @@ async fn run_actix_server() -> Result<(), IOError> {
     let sim_latency_str = matches.get_one::<String>("latency").expect("Missing latency argument").to_string();
     let sim_latency: u64 = sim_latency_str.trim_end_matches("ms").parse::<u64>().expect("Invalid latency format");
     let pagination_factor = matches.get_one::<String>("page").unwrap().parse::<u64>().expect("Invalid page format");
+    let auto_generate_enabled = matches.get_flag("auto_generate_data");
 
     let json_content = fs::read_to_string(&json_file_path).expect("Failed to read Json File");
-    let parsed_content: Value = serde_json::from_str(&json_content).expect("Invalid Json format");
 
-    let json_type = match &parsed_content {
-        Value::Object(_) => true,
-        Value::Array(_) => false,
-        _ => false
+    let parsed_content: Value = if auto_generate_enabled {
+        let schema: JsonDataGeneratorSchema = serde_json::from_str(&json_content).expect("Invalid schema format for auto data generation");
+        let result = generate_json_from_schema(schema);
+        result
+    } else {
+        let content: Value = serde_json::from_str(&json_content).expect("Invalid Json format");
+        if let Some(routes) = content.get("routes") {
+            if routes.is_array() {
+                eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
+                process::exit(1);
+            } else {
+                eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
+                process::exit(1);
+            }
+        } else {
+            println!("🪨  Auto Generate OFF, Found Data file !!")
+        }
+        
+        if !content.is_object() {
+            eprintln!("Error: The given json file is a JSON Array! It should be a JSON Object");
+            process::exit(1);
+        }
+        content
     };
 
-    if json_type == false {
-        eprintln!("Error: The given json file is a JSON Array !! It should be a JSON Object");
-        process::exit(1);
-    }
-
-    let final_port: u16 = find_available_port(server_port);
+    // println!("{:#?}", parsed_content.clone());
 
     let mut sort_rules: HashMap<String, (String, String)> = HashMap::new();
     if let Some(sort_args) = matches.get_many::<String>("sort") {
@@ -476,6 +497,8 @@ async fn run_actix_server() -> Result<(), IOError> {
         }
     }
     
+    let final_port: u16 = find_available_port(server_port);
+
     let config_data = web::Data::new(Config {
         path: json_file_path,
         port: final_port,
@@ -491,11 +514,11 @@ async fn run_actix_server() -> Result<(), IOError> {
         App::new()
             .app_data(config_data.clone())
             .route("/", web::get().to(ping_pong))
-            .service(get_data)
             .service(get_data_by_id)
+            .service(get_data)
             .service(add_data)
-            .service(delete_data)
             .service(delete_data_by_id)
+            .service(delete_data)
     })
     .bind(format!("0.0.0.0:{}", final_port))?
     .workers(4)

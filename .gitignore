@@ -1,6 +1,12 @@
-/target
+# Chimera stuff
 data.json
 hi.json
+schema.json
+
+# Rust stuff
+/target
+
+# Tailwind stuff
 /node_modules
 package.json
 package-lock.json
