@@ -125,10 +125,6 @@ Pass this JSON file as an argument to `--pass`.
 - **Highly Configurable** – Tailor it to your needs with CLI flags.
 - **Built for Developers** – Ideal for testing, prototyping, and mock API creation.
 
-## 📜 License
-
-Chimera is licensed under the MIT License.
-
 ---
 
 ## 👨‍💻 Maintainers
