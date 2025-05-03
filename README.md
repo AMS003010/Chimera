@@ -1,5 +1,7 @@
 # Chimera - A Fast ⚡ & Powerful JSON Server built with Rust 🦀
 
+[![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ams003010/chimera)](https://rust-reportcard.xuri.me/report/github.com/ams003010/chimera)
+
 ## 🔱 Introduction
 
 Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-web. It allows you to serve JSON files as APIs with sorting, pagination, simulated latency, and route-based retrieval. Ideal for prototyping, mock APIs, or rapid development.
