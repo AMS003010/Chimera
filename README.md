@@ -2,11 +2,15 @@
 
 [![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ams003010/chimera)](https://rust-reportcard.xuri.me/report/github.com/ams003010/chimera)
 
+<br/>
+
 ## 🔱 Introduction
 
 Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-web. It allows you to serve JSON files as APIs with sorting, pagination, simulated latency, and route-based retrieval. Ideal for prototyping, mock APIs, or rapid development.
 
 Now with **automatic data generation and null value simulation**, Chimera helps you mock more realistic and dynamic API responses effortlessly.
+
+<br/>
 
 ## 🚀 Features
 
@@ -19,6 +23,8 @@ Now with **automatic data generation and null value simulation**, Chimera helps 
 - **🐌 Simulated Latency** – Mimic real-world API delays for better testing.
 - **⚡ Ultra-Fast Performance** – Leveraging Rust and Actix-web for speed and efficiency.
 - **🛠️ Easy Configuration** – Set up ports, file paths, latency, sorting, and pagination via CLI.
+
+<br/>
 
 ## 📦 Installation
 
@@ -41,6 +47,8 @@ curl -sL $(curl -s https://api.github.com/repos/AMS003010/chimera/releases/lates
 chmod +x chimera
 ./chimera --path data.json
 ```
+
+<br/>
 
 ## 🏗️ Usage
 
@@ -121,31 +129,30 @@ Pass this JSON file as an argument to `--pass`.
 }
 ```
 
+<br/>
+
 ## 🌟 Why Chimera?
 
 - **Lightweight & Fast** – Runs efficiently with minimal resource usage.
 - **Highly Configurable** – Tailor it to your needs with CLI flags.
 - **Built for Developers** – Ideal for testing, prototyping, and mock API creation.
 
----
+<br/>
 
 ## 👨‍💻 Maintainers
 This project is maintained by [@AMS003010](https://github.com/AMS003010).
 
----
+<br/>
 
 ## 📜 License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
----
+<br/>
 
 ## 💡 Contributing
 Contributions are welcome! Feel free to open an issue or submit a pull request.
 
----
+<br/>
 
 ## 📩 Contact
 For any queries or issues, feel free to reach out via GitHub Issues.
-
-Happy Coding! 🚀
-
