@@ -71,6 +71,8 @@ Here's all the available CLI commands
 
 `chimera.exe --path .\data.json --page 3`: Start server with the records paginated with a factor `3`
 
+`chimera.exe --path .\data.json --latency 100`: Start server with a simulated latency of `100 ms`
+
 
 | Flag             | Description                                      |
 |-----------------|--------------------------------------------------|
