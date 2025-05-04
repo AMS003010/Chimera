@@ -1,4 +1,4 @@
-![ui](/assets/banner.png)
+![banner](/assets/banner.png)
 
 # Chimera - The Only Mock API you will need ⚡
 
