@@ -1,6 +1,6 @@
 ![ui](/assets/banner.png)
 
-# Chimera - A Fast ⚡ & Powerful JSON Server built with Rust 🦀
+# Chimera - The Only Mock API you need ⚡
 
 [![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ams003010/chimera)](https://rust-reportcard.xuri.me/report/github.com/ams003010/chimera)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
