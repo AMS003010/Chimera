@@ -10,8 +10,8 @@ Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-we
 Now with **automatic data generation and null value simulation**, Chimera helps you mock more realistic and dynamic API responses effortlessly.
 
 ### Perfect for:
- - Mock API for Frontend Development
- - Mock API for Mobile App Development
+ - Mock HTTP API for Frontend Development
+ - Mock HTTP API for Mobile App Development
  - IoT Device Simulation
  - Prototyping for Microservices
 
