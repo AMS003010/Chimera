@@ -509,8 +509,6 @@ async fn run_actix_server() -> Result<(), IOError> {
         paginate: pagination_factor,
     });
 
-    // println!("🔱 Chimera JSON Server running at http://127.0.0.1:{}\n", final_port);
-
     let local = "127.0.0.1";
     let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
 
