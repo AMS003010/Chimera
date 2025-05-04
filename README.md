@@ -61,13 +61,15 @@ chmod +x chimera
 
 ### CLI Commands
 
-Here's a quick look at the most popular CLI commands
+Here's all the available CLI commands
 
-`chimera --path data.json`: Start the Chimera server with data from `data.json`
+`chimera.exe --path .\data.json`: Start the Chimera server with data from `data.json` at default port `8080`
 
-`chimera --path data.json`: Start the Chimera server with data from `data.json`
+`chimera.exe --path .\data.json --port 4000`: Start the Chimera server with data from `data.json` at port `4000`
 
-`chimera --path data.json`: Start the Chimera server with data from `data.json`
+`chimera.exe --path .\data.json --sort products desc id`: Start server with records in `/products` route sorted by `id` in `asc` order
+
+`chimera.exe --path .\data.json --page 3`: Start server with the records paginated with a factor `3`
 
 
 | Flag             | Description                                      |
