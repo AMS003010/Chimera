@@ -10,34 +10,32 @@ Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-we
 Now with **automatic data generation and null value simulation**, Chimera helps you mock more realistic and dynamic API responses effortlessly.
 
 ### Perfect for:
- - 🎨 Mock API for Frontend Development
- - 📱 Mock API for Mobile App Development
- - 🌡️ IoT Device Simulation
- - 🧰 Prototyping for Microservices
+ - Mock API for Frontend Development
+ - Mock API for Mobile App Development
+ - IoT Device Simulation
+ - Prototyping for Microservices
 
 ### Future support for: 
- - 🔄 Webhook Simulation (🪝)
- - ⬢ GraphQL Mocking (⬢)
- - 🕸️ WebSocket Testing (🕸️)
- - 🌍 gRPC Simulation (🌍)
- - 🍔 MQTT Broker Simulation (🍔)
+ - Webhook Simulation (🪝)
+ - GraphQL Mocking (⬢)
+ - WebSocket Testing (🕸️)
+ - gRPC Simulation (🌍)
+ - MQTT Broker Simulation (🍔)
 
-## Features
+## 🐲 Features
 
-- **📂 Serve JSON as an API** – Load any JSON file and serve it as structured API endpoints.
-- **💉 CRUD Support** – GET, POST, DELETE Support on all routes.
-- **🧬 Auto Data Generation** – Generate mock data automatically from schema-based definitions.
-- **🚫 Null Value Simulation** – Add controlled nulls to fields for realistic data modeling.
-- **📌 Route-based Data Retrieval** – Fetch data by route and ID.
-- **📊 Sorting Support** – Sort entries dynamically based on attributes.
-- **📑 Pagination Support** – Limit the number of records per request.
-- **🐌 Simulated Latency** – Mimic real-world API delays for better testing.
-- **⚡ Ultra-Fast Performance** – Leveraging Rust and Actix-web for speed and efficiency.
-- **🛠️ Easy Configuration** – Set up ports, file paths, latency, sorting, and pagination via CLI.
+- **Serve JSON as an API** – Load any JSON file and serve it as structured API endpoints.
+- **CRUD Support** – GET, POST, DELETE Support on all routes.
+- **Auto Data Generation** – Generate mock data automatically from schema-based definitions.
+- **Null Value Simulation** – Add controlled nulls to fields for realistic data modeling.
+- **Route-based Data Retrieval** – Fetch data by route and ID.
+- **Sorting Support** – Sort entries dynamically based on attributes.
+- **Pagination Support** – Limit the number of records per request.
+- **Simulated Latency** – Mimic real-world API delays for better testing.
+- **Ultra-Fast Performance** – Leveraging Rust and Actix-web for speed and efficiency.
+- **Easy Configuration** – Set up ports, file paths, latency, sorting, and pagination via CLI.
 
-<br/>
-
-## Installation
+## 🐲 Installation
 
 ### On Windows
 
@@ -59,15 +57,18 @@ chmod +x chimera
 ./chimera --path data.json
 ```
 
-## 🏗️ Usage
+## 🐲 Usage
 
-### Start the Server
+### CLI Commands
 
-```sh
-./chimera --path data.json
-```
+Here's a quick look at the most popular CLI commands
 
-### Available Options
+`chimera --path data.json`: Start the Chimera server with data from `data.json`
+
+`chimera --path data.json`: Start the Chimera server with data from `data.json`
+
+`chimera --path data.json`: Start the Chimera server with data from `data.json`
+
 
 | Flag             | Description                                      |
 |-----------------|--------------------------------------------------|
@@ -78,7 +79,7 @@ chmod +x chimera
 | `--page <num>`   | Paginate GET responses (Default: 0 - No Limit) |
 | `-X`/`--auto_generate_data` | Enable auto-generation from a schema JSON |
 
-## 📡 API Endpoints
+### API Endpoints
 
 | Method   | Endpoint        | Description                      |
 | -------- | --------------- | -------------------------------- |
@@ -124,44 +125,75 @@ Pass this JSON file as an argument to `--pass`.
 - `schema`: Define fields and their data type (`name`, `id`, `date`, `lorem`, etc.)
 - `null_percentage`: Percentage of fields and rows to be randomly set as `null`
 
-## 📜 Example JSON File (`data.json`)
+## 📜 Example Data JSON File (`data.json`)
 
 ```json
 {
-  "users": [
-    { "id": 1, "name": "Alice", "age": 25 },
-    { "id": 2, "name": "Bob", "age": 30 }
-  ],
-  "posts": [
-    { "id": 1, "title": "Rust is amazing!" }
-  ]
+    "data":[
+        {
+            "mssg_id":1,
+            "created_on":"25-03-24",
+            "mssg":"It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for"
+        },
+        {
+            "mssg_id":2,
+            "created_on":"02-11-24",
+            "mssg":"years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, fro"
+        }
+    ],
+    "products": [
+        {
+            "id":8,
+            "name": "ball"
+        },
+        {
+            "id":4,
+            "name": "table"
+        },
+        {
+            "id":6,
+            "name": "ball"
+        },
+        {
+            "id":7,
+            "name": "ball"
+        }
+    ]
 }
 ```
 
-<br/>
+## 📜 Example Schema JSON File (`schema.json`)
 
-## 🌟 Why Chimera?
+```json
+{
+    "routes": [
+        {
+            "path":"data",
+            "no_of_entries": 2,
+            "schema": {
+                "mssg_id": "id",
+                "created_on": "date",
+                "mssg": "lorem"
+            },
+            "null_percentage": 0
+        },
+        {
+            "path":"products",
+            "no_of_entries": 7,
+            "schema": {
+                "id": "id",
+                "rsnd": "integer",
+                "name": "name",
+                "probability": "boolean"
+            },
+            "null_percentage": 0
+        }
+    ]
+}
+```
 
-- **Lightweight & Fast** – Runs efficiently with minimal resource usage.
-- **Highly Configurable** – Tailor it to your needs with CLI flags.
-- **Built for Developers** – Ideal for testing, prototyping, and mock API creation.
-
-<br/>
-
-## 👨‍💻 Maintainers
+## 🐲 Maintainers
 This project is maintained by [@AMS003010](https://github.com/AMS003010).
 
-<br/>
-
-## 📜 License
+## 🐲 License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-<br/>
-
-## 💡 Contributing
-Contributions are welcome! Feel free to open an issue or submit a pull request.
-
-<br/>
-
-## 📩 Contact
-For any queries or issues, feel free to reach out via GitHub Issues.
