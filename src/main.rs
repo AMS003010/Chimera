@@ -411,7 +411,7 @@ async fn add_data(path: web::Path<String>, body: web::Json<Value>, data: web::Da
 async fn run_actix_server() -> Result<(), IOError> {
     
     let matches = Command::new("Chimera - JSoN SeRVeR")
-        .version("0.1.0")
+        .version("0.5.0")
         .author("Abhijith M S")
         .about("A powerful and fast⚡ Json server built in Rust 🦀")
         .arg(Arg::new("port")
