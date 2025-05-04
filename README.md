@@ -116,9 +116,18 @@ With the `-X` flag, Chimera can generate data on the fly using a schema JSON str
     ]
 }
 ```
-Pass this JSON file as an argument to `--pass`. 
+Pass this JSON file as an argument to `--path`
+- `path`: Name of the route
 - `no_of_entries`: Number of mock entries to generate
-- `schema`: Define fields and their data type (`name`, `id`, `date`, `lorem`, etc.)
+- `schema`: Define fields and their data type
+  - `name`: Random name
+  - `id`: Random number
+  - `integer`: Random number
+  - `date`: Date in `DD-MM-YYYY` format
+  - `datetime`: Date in `DD-MM-YYYYTHH:MM:SS` format
+  - `lorem`: Random text
+  - `string`: Random word
+  - `boolean`: Random boolean value
 - `null_percentage`: Percentage of fields and rows to be randomly set as `null`
 
 ## 📜 Example Data JSON File (`data.json`)
