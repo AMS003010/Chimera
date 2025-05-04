@@ -73,15 +73,7 @@ Here's all the available CLI commands
 
 `chimera.exe --path .\data.json --latency 100`: Start server with a simulated latency of `100 ms`
 
-
-| Flag             | Description                                      |
-|-----------------|--------------------------------------------------|
-| `--path <file>`  | Path to the JSON file (Required)               |
-| `--port <port>`  | Specify the server port (Default: 8080)        |
-| `--latency <ms>` | Simulated latency in milliseconds (Optional)   |
-| `--sort <route> <asc / desc> <attribute>` | Sort route data dynamically |
-| `--page <num>`   | Paginate GET responses (Default: 0 - No Limit) |
-| `-X`/`--auto_generate_data` | Enable auto-generation from a schema JSON |
+`chimera.exe --path .\schema.json -X`: Start server with automatic data generation using the schema from `schema.json`
 
 ### API Endpoints
 
