@@ -5,20 +5,27 @@
 [![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ams003010/chimera)](https://rust-reportcard.xuri.me/report/github.com/ams003010/chimera)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-
-<br/>
-
-## 🔱 Introduction
-
 Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-web. It allows you to serve JSON files as APIs with sorting, pagination, simulated latency, and route-based retrieval. Ideal for prototyping, mock APIs, or rapid development.
 
 Now with **automatic data generation and null value simulation**, Chimera helps you mock more realistic and dynamic API responses effortlessly.
 
-<br/>
+### Perfect for:
+ - 🎨 Mock API for Frontend Development
+ - 📱 Mock API for Mobile App Development
+ - 🌡️ IoT Device Simulation
+ - 🧰 Prototyping for Microservices
 
-## 🚀 Features
+### Future support for: 
+ - 🔄 Webhook Simulation (🪝)
+ - ⬢ GraphQL Mocking (⬢)
+ - 🕸️ WebSocket Testing (🕸️)
+ - 🌍 gRPC Simulation (🌍)
+ - 🍔 MQTT Broker Simulation (🍔)
+
+## Features
 
 - **📂 Serve JSON as an API** – Load any JSON file and serve it as structured API endpoints.
+- **💉 CRUD Support** – GET, POST, DELETE Support on all routes.
 - **🧬 Auto Data Generation** – Generate mock data automatically from schema-based definitions.
 - **🚫 Null Value Simulation** – Add controlled nulls to fields for realistic data modeling.
 - **📌 Route-based Data Retrieval** – Fetch data by route and ID.
@@ -30,7 +37,7 @@ Now with **automatic data generation and null value simulation**, Chimera helps 
 
 <br/>
 
-## 📦 Installation
+## Installation
 
 ### On Windows
 
@@ -51,8 +58,6 @@ curl -sL $(curl -s https://api.github.com/repos/AMS003010/chimera/releases/lates
 chmod +x chimera
 ./chimera --path data.json
 ```
-
-<br/>
 
 ## 🏗️ Usage
 
