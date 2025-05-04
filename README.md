@@ -89,7 +89,7 @@ Here's all the available CLI commands
 ## 🔧 Auto Data Generation
 
 With the `-X` flag, Chimera can generate data on the fly using a schema JSON structure like:
-```
+```json
 {
     "routes": [
         {
