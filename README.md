@@ -65,15 +65,15 @@ Here's all the available CLI commands
 
 `chimera.exe --path .\data.json`: Start the Chimera server with data from `data.json` at default port `8080`
 
-`chimera.exe --path .\data.json --port 4000`: Start the Chimera server with data from `data.json` at port `4000`
+`chimera.exe --path .\data.json --port 4000`: Start the Chimera server at port `4000`
 
-`chimera.exe --path .\data.json --sort products desc id`: Start server with records in `/products` route sorted by `id` in `asc` order
+`chimera.exe --path .\data.json --sort products desc id`: Sort records in `/products` route by `id` in `asc` order
 
 `chimera.exe --path .\data.json --page 3`: Start server with the records paginated with a factor `3`
 
-`chimera.exe --path .\data.json --latency 100`: Start server with a simulated latency of `100 ms`
+`chimera.exe --path .\data.json --latency 100`: Simulate latency of `100 ms`
 
-`chimera.exe --path .\schema.json -X`: Start server with automatic data generation using the schema from `schema.json`
+`chimera.exe --path .\schema.json -X`: Enable automatic data generation using schema from `schema.json`
 
 ### API Endpoints
 
