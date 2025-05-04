@@ -5,7 +5,7 @@ pub fn find_available_port(port: u16) -> u16 {
     println!("🪨  Trying to bind to port {}", port);
     loop {
         if is_port_ok(start_port) {
-            println!("🔱 Port {} is available", port);
+            println!("🔱  Port {} is available", port);
             return port;
         }
         start_port += 1;

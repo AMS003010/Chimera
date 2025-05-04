@@ -8,6 +8,7 @@ use clap::{Arg, Command};
 use serde_json::Value;
 use colored::*;
 use chrono::Local;
+use local_ip_address::local_ip;
 
 use internal::port::find_available_port;
 use internal::chimera::Config;
@@ -102,7 +103,7 @@ async fn get_data(path: web::Path<String>, data: web::Data<Config>, req: actix_w
                 " GET    ".bright_white().on_green(),
                 requested_path.italic()
             );
-            HttpResponse::NotFound().body("Route not found")
+            HttpResponse::NotFound().body("Route not registered !!")
         },
     }
 }
@@ -179,7 +180,7 @@ async fn get_data_by_id(path: web::Path<(String, String)>, data: web::Data<Confi
                 " GET    ".bright_white().on_green(),
                 requested_path.italic()
             );
-            HttpResponse::NotFound().body("Route not found.")
+            HttpResponse::NotFound().body("Route not registered !!.")
         },
     }
 }
@@ -239,7 +240,7 @@ async fn delete_data(path: web::Path<String>,data: web::Data<Config>, req: actix
                 " DELETE ".bright_white().on_red(),
                 requested_path.italic()
             );
-            HttpResponse::NotFound().body("Route not found.")
+            HttpResponse::NotFound().body("Route not registered !!.")
         },
     }
 }
@@ -326,7 +327,7 @@ async fn delete_data_by_id(path: web::Path<(String, String)>,data: web::Data<Con
                 " DELETE ".bright_white().on_red(),
                 requested_path.italic()
             );
-            HttpResponse::NotFound().body("Route not found.")
+            HttpResponse::NotFound().body("Route not registered !!.")
         },
     }
 }
@@ -508,7 +509,14 @@ async fn run_actix_server() -> Result<(), IOError> {
         paginate: pagination_factor,
     });
 
-    println!("🔱 Chimera JSON Server running at http://127.0.0.1:{}\n", final_port);
+    // println!("🔱 Chimera JSON Server running at http://127.0.0.1:{}\n", final_port);
+
+    let local = "127.0.0.1";
+    let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
+
+    println!("🔱  Available at:");
+    println!("      • http://{}:{}", local, final_port);
+    println!("      • http://{}:{}\n", lan_ip, final_port);
 
     let server = HttpServer::new(move || {
         App::new()
