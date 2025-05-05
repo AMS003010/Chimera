@@ -2,6 +2,7 @@
 data.json
 hi.json
 schema.json
+/benchmarks
 
 # Rust stuff
 /target

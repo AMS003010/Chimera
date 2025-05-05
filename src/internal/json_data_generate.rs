@@ -68,7 +68,7 @@ pub fn generate_json_from_schema(schema: JsonDataGeneratorSchema) -> Value {
     result
 }
 
-fn generate_value(field_name: &str, _field_type: &str, field_def: &Value, mut index: u64) -> Value {
+fn generate_value(_field_name: &str, _field_type: &str, field_def: &Value, index: u64) -> Value {
     let mut rng_instance = rng();
 
     let field_type = match field_def.as_str() {

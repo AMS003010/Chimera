@@ -1,9 +1,10 @@
 use std::io::Error as IOError;
 use std::process;
 use std::collections::HashMap;
-use std::{fs, sync::Mutex};
+use std::{fs};
 use actix_web::{web, App, get, post, delete, Responder, HttpServer, HttpResponse};
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, Duration, timeout};
+use tokio::sync::Mutex;
 use clap::{Arg, Command};
 use serde_json::Value;
 use colored::*;
@@ -34,7 +35,7 @@ async fn get_data(path: web::Path<String>, data: web::Data<Config>, req: actix_w
     let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
     let requested_path = req.path();
 
-    let json_data = match data.json_value.try_lock() {
+    let json_data = match timeout(Duration::from_millis(100), data.json_value.lock()).await {
         Ok(lock) => lock,
         Err(_) => {
             println!(
@@ -118,7 +119,7 @@ async fn get_data_by_id(path: web::Path<(String, String)>, data: web::Data<Confi
     let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
     let requested_path = req.path();
 
-    let json_data = match data.json_value.try_lock() {
+    let json_data = match timeout(Duration::from_millis(100), data.json_value.lock()).await {
         Ok(lock) => lock,
         Err(_) => {
             println!(
@@ -196,7 +197,7 @@ async fn delete_data(path: web::Path<String>,data: web::Data<Config>, req: actix
     let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
     let requested_path = req.path();
 
-    let mut json_data = match data.json_value.try_lock() {
+    let mut json_data = match timeout(Duration::from_millis(100), data.json_value.lock()).await {
         Ok(lock) => lock, 
         Err(_) => {
             println!(
@@ -256,7 +257,7 @@ async fn delete_data_by_id(path: web::Path<(String, String)>,data: web::Data<Con
     let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
     let requested_path = req.path();
     
-    let mut json_data = match data.json_value.try_lock() {
+    let mut json_data = match timeout(Duration::from_millis(100), data.json_value.lock()).await {
         Ok(lock) => lock, 
         Err(_) => {
             println!(
@@ -343,7 +344,7 @@ async fn add_data(path: web::Path<String>, body: web::Json<Value>, data: web::Da
     let route = path.into_inner();
     let new_entry = body.into_inner();
 
-    let mut json_data = match data.json_value.try_lock() {
+    let mut json_data = match timeout(Duration::from_millis(100), data.json_value.lock()).await {
         Ok(lock) => lock,
         Err(_) => {
             println!(
