@@ -83,7 +83,7 @@ Here's all the available CLI commands
 
 | Method   | Endpoint        | Description                      |
 | -------- | --------------- | -------------------------------- |
-| `GET`    | `/ping`         | Health check (`Pong 🏓`)         |
+| `GET`    | `/`             | Health check                     |
 | `GET`    | `/{route}`      | Retrieve all data under a route  |
 | `GET`    | `/{route}/{id}` | Retrieve a specific record by ID |
 | `POST`   | `/{route}`      | Add a record under a route       |
