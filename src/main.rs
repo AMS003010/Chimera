@@ -477,8 +477,6 @@ async fn run_actix_server() -> Result<(), IOError> {
                 eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
                 process::exit(1);
             }
-        } else {
-            println!("🪨  Auto Generate OFF, Found Data file !!")
         }
         
         if !content.is_object() {
@@ -513,10 +511,9 @@ async fn run_actix_server() -> Result<(), IOError> {
 
     let local = "127.0.0.1";
     let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
-
-    println!("🔱  Available at:");
-    println!("      • http://{}:{}", local, final_port);
-    println!("      • http://{}:{}\n", lan_ip, final_port);
+    println!(" - Local:               http://{}:{}", local, final_port);
+    println!(" - Network:             http://{}:{}", lan_ip, final_port);
+    println!(" - Data-Auto-generate:  {}\n", if auto_generate_enabled { "ENABLED" } else { "DISABLED" });
 
     let server = HttpServer::new(move || {
         App::new()

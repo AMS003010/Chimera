@@ -27,9 +27,7 @@ pub fn generate_json_from_schema(schema: JsonDataGeneratorSchema) -> Value {
     let mut rng_instance = rng();
 
     let routes = &schema.routes;
-    if !routes.is_empty() {
-        println!("🪨  Auto Generate ON, Found Schema file !!")
-    } else {
+    if routes.is_empty() {
         eprintln!("Please pass a schema file .json for your routes as `auto-generate-data` is enabled");
         process::exit(1);
     }
