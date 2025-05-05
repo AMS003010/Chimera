@@ -41,18 +41,18 @@ Now with **automatic data generation and null value simulation**, Chimera helps 
 ### On Windows
 
 On Powershell (Run as Administer)
-```
+```powershell
 Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.5.0/chimera-windows.exe" -OutFile "chimera.exe"
 ```
 
 On Powershell (non-privileged)
-```
+```powershell
 .\chimera.exe --path data.json
 ```
 
 ### On Linux and Mac
 
-```
+```bash
 curl -sL $(curl -s https://api.github.com/repos/AMS003010/chimera/releases/latest | jq -r '.assets[] | select(.name | test("chimera.*")) | .browser_download_url') -o chimera
 chmod +x chimera
 ./chimera --path data.json
