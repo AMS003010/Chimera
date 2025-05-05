@@ -76,6 +76,9 @@ Here's all the available CLI commands
 
 `chimera.exe --path .\schema.json -X`: Enable automatic data generation using schema from `schema.json`
 
+> [!NOTE]  
+> Use multiple arguments together for more diverse control
+
 ### API Endpoints
 
 | Method   | Endpoint        | Description                      |
