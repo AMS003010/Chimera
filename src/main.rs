@@ -21,7 +21,9 @@ mod internal {
 }
 
 async fn ping_pong() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html").body("🐉 Hisss....")
+    HttpResponse::Ok()
+        .content_type("text/plain")
+        .body("status: ONLINE\nversion: 0.5.0\n🐲 All systems fused and breathing fire.")
 }
 
 #[get("/{route}")]
