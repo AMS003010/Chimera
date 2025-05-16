@@ -36,7 +36,7 @@ pub fn generate_json_from_schema(schema: JsonDataGeneratorSchema) -> Value {
         let mut route_data = Vec::new();
         let null_percentage = route.null_percentage;
 
-        if !(null_percentage >= 0 && null_percentage<=90) {
+        if !(null_percentage<=90) {
             eprintln!("field `null_percentage` must be between 0 and 90 [including 0 and 90]");
             process::exit(1);
         } 
@@ -46,7 +46,7 @@ pub fn generate_json_from_schema(schema: JsonDataGeneratorSchema) -> Value {
 
             if let Some(schema_obj) = route.schema.as_object() {
                 for (field_name, field_def) in schema_obj {
-                    let roll = rng_instance.gen_range(0..100);
+                    let roll = rng_instance.random_range(0..100);
                     if roll < null_percentage {
                         entry.insert(field_name.clone(), json!(null));
                     } else {
@@ -102,9 +102,9 @@ fn generate_faker_value(category: &str, rng: &mut impl Rng, mut index: u64) -> V
             let datetime = chrono::Utc::now().to_rfc3339();
             Value::String(datetime)
         },
-        "boolean" => Value::Bool(rng.gen_bool(0.5)),
+        "boolean" => Value::Bool(rng.random_bool(0.5)),
         "integer" | "number" => {
-            let num = rng.gen_range(1..100);
+            let num = rng.random_range(1..100);
             Value::Number(serde_json::Number::from(num))
         }
         _ => Value::String(format!(
