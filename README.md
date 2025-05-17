@@ -58,6 +58,14 @@ chmod +x chimera
 ./chimera --path data.json
 ```
 
+### Build from Source
+
+```bash
+git clone https://github.com/AMS003010/Chimera.git
+cd Chimera
+cargo install --path .
+```
+
 ## 🐲 Usage
 
 ### CLI Commands
