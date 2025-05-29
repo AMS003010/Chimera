@@ -34,7 +34,6 @@ async fn shutdown_signal() {
         tokio::signal::ctrl_c()
             .await
             .expect("Failed to install Ctrl+C handler");
-        println!("\nReceived shutdown signal, starting graceful shutdown...");
     };
 
     // On Windows, we need to handle ctrl_break differently
@@ -136,7 +135,7 @@ fn compare_values(a: &Value, b: &Value, key: &str, order: &str) -> std::cmp::Ord
 }
 
 // Helper function for logging
-fn log_request(date_time: &str, status: &str, method: &str, path: &str, is_error: bool) {
+fn log_request(date_time: &str, status: &str, method: &str, path: &str, _is_error: bool) {
     let status_display = match status {
         "200" => " 200 ".bold().white().on_blue(),
         "404" => " 404 ".bold().white().on_red(),
@@ -364,7 +363,7 @@ async fn delete_data_by_id(
             // Use parallel processing only for large arrays
             if arr.len() > 100 {
                 use rayon::prelude::*;
-                let mut filtered: Vec<Value> = arr.par_iter()
+                let filtered: Vec<Value> = arr.par_iter()
                     .filter(|item| item.get("id").and_then(Value::as_i64) != Some(_id))
                     .cloned()
                     .collect();
@@ -456,7 +455,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     if let Err(e) = graceful.await {
         eprintln!("Server error: {}", e);
     } else {
-        println!("Server shutdown complete");
+        println!("\nReceived shutdown signal, starting graceful shutdown...");
     }
 
     Ok(())
@@ -532,6 +531,7 @@ fn initialize_cmd() -> Result<Config, IOError> {
         result
     } else {
         let content: Value = serde_json::from_str(&json_content).expect("Invalid Json format");
+        println!("{:#?}", content);
         if let Some(routes) = content.get("routes") {
             if routes.is_array() {
                 eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
