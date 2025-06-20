@@ -1,5 +1,6 @@
 use std::io::Error as IOError;
 use std::process;
+use std::time::Instant;
 use std::collections::HashMap;
 use std::{fs, net::SocketAddr};
 use std::sync::Arc;
@@ -18,54 +19,23 @@ use colored::*;
 use chrono::Local;
 use rayon::prelude::*;
 use local_ip_address::local_ip;
-use crate::internal::chimera::{Config, AppState};
+use crate::internal::chimera::{Config, AppState, CHIMERA_LATEST_VERSION};
 use crate::internal::port::find_available_port;
 use crate::internal::json_data_generate::{JsonDataGeneratorSchema, generate_json_from_schema};
+use crate::internal::helpers::{shutdown_signal, compare_values, log_request, server_busy_response, find_key_and_id_lengths};
 
 mod internal {
     pub mod chimera;
     pub mod port;
     pub mod json_data_generate;
-}
-
-async fn shutdown_signal() {
-    // Create a future that resolves when Ctrl+C is pressed
-    let ctrl_c = async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("Failed to install Ctrl+C handler");
-    };
-
-    // On Windows, we need to handle ctrl_break differently
-    #[cfg(windows)]
-    let terminate = async {
-        let mut ctrl_break = tokio::signal::windows::ctrl_break()
-            .expect("Failed to install Ctrl+Break handler");
-        ctrl_break.recv().await;
-        println!("\nReceived Ctrl+Break signal, starting graceful shutdown...");
-    };
-
-    // On Unix, handle SIGTERM
-    #[cfg(unix)]
-    let terminate = async {
-        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("Failed to install SIGTERM handler");
-        sigterm.recv().await;
-        println!("\nReceived SIGTERM signal, starting graceful shutdown...");
-    };
-
-    // Wait for either signal
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
+    pub mod helpers;
 }
 
 async fn ping_pong() -> impl IntoResponse {
     (
         StatusCode::OK,
         [("content-type", "text/plain")],
-        "status: ONLINE\nversion: 0.5.0\n🐲 All systems fused and breathing fire."
+        format!("status: ONLINE\nversion: {}\n🐲 All systems fused and breathing fire.", CHIMERA_LATEST_VERSION).to_string()
     )
 }
 
@@ -74,6 +44,7 @@ async fn get_data(
     State(state): State<Arc<AppState>>, 
     uri: Uri
 ) -> Response {
+    let start_time = Instant::now();
     sleep(Duration::from_millis(state.latency)).await;
 
     // Get these before locking
@@ -86,7 +57,8 @@ async fn get_data(
         let json_data = match timeout(Duration::from_millis(100), state.json_value.read()).await {
             Ok(lock) => lock.get(&route).cloned(),
             Err(_) => {
-                log_request(&date_time, "500", "GET", &requested_path, true);
+                let elapsed = start_time.elapsed().as_millis();
+                log_request(&date_time, "500", "GET", &requested_path, true, elapsed, state.max_request_path_len, state.max_request_path_id_length);
                 return server_busy_response();
             },
         };
@@ -113,56 +85,16 @@ async fn get_data(
                 }
             }
 
-            log_request(&date_time, "200", "GET", &requested_path, false);
+            let elapsed = start_time.elapsed().as_millis();
+            log_request(&date_time, "200", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length);
             (StatusCode::OK, axum::Json(value)).into_response()
         }
         None => {
-            log_request(&date_time, "404", "GET", &requested_path, false);
-            (StatusCode::NOT_FOUND, "Route not registered !!").into_response()
+            let elapsed = start_time.elapsed().as_millis();
+            log_request(&date_time, "404", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length);
+            (StatusCode::NOT_FOUND, "Route not registered 1 !!").into_response()
         },
     }
-}
-
-// Helper function for value comparison
-fn compare_values(a: &Value, b: &Value, key: &str, order: &str) -> std::cmp::Ordering {
-    let a_val = a.get(key).and_then(Value::as_i64).unwrap_or(0);
-    let b_val = b.get(key).and_then(Value::as_i64).unwrap_or(0);
-    if order == "asc" {
-        a_val.cmp(&b_val)
-    } else {
-        b_val.cmp(&a_val)
-    }
-}
-
-// Helper function for logging
-fn log_request(date_time: &str, status: &str, method: &str, path: &str, _is_error: bool) {
-    let status_display = match status {
-        "200" => " 200 ".bold().white().on_blue(),
-        "404" => " 404 ".bold().white().on_red(),
-        "500" => " 500 ".bold().white().on_green(),
-        _ => " ??? ".bold().white().on_yellow(),
-    };
-
-    let method_display = match method {
-        "GET" => " GET    ".bright_white().on_green(),
-        _ => method.to_string().bright_white().on_green(),
-    };
-
-    println!(
-        "|{}| {} |{}| {}",
-        status_display,
-        date_time.italic().dimmed(),
-        method_display,
-        path.italic()
-    );
-}
-
-// Helper function for busy response
-fn server_busy_response() -> Response {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "Server is busy, try again later."
-    ).into_response()
 }
 
 async fn get_data_by_id(
@@ -244,7 +176,7 @@ async fn get_data_by_id(
                 " GET    ".bright_white().on_green(),
                 requested_path.italic()
             );
-            return (StatusCode::NOT_FOUND, "Route not registered !!").into_response();
+            return (StatusCode::NOT_FOUND, "Route not registered 2 !!").into_response();
         },
     }
 }
@@ -308,7 +240,7 @@ async fn delete_data(
                 " DELETE ".bright_white().on_red(),
                 requested_path.italic()
             );
-            return (StatusCode::NOT_FOUND, "Route not registered !!").into_response();
+            return (StatusCode::NOT_FOUND, "Route not registered 3 !!").into_response();
         },
     }
 }
@@ -410,7 +342,7 @@ async fn delete_data_by_id(
                 " DELETE ".bright_white().on_red(),
                 requested_path.italic()
             );
-            return (StatusCode::NOT_FOUND, "Route not registered !!").into_response();
+            return (StatusCode::NOT_FOUND, "Route not registered 4 !!").into_response();
         },
     }
 }
@@ -424,15 +356,19 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
         latency: config.latency,
         sort_rules: config.sort_rules,
         paginate: config.paginate,
+        max_request_path_id_length: config.max_request_path_id_length,
+        max_request_path_len: config.max_request_path_len,
     });
 
     // Build router with Axum
     let app = Router::new()
         .route("/", get(ping_pong))
-        .route("/:route", get(get_data))
-        .route("/:route", delete(delete_data))
-        .route("/:route/:id", get(get_data_by_id))
-        .route("/:route/:id", delete(delete_data_by_id))
+        // Routes with ID (no catch-all)
+        // .route("/:route/:id", get(get_data_by_id))
+        // .route("/:route/:id", delete(delete_data_by_id))
+        // Catch-all routes (must come last)
+        .route("/*route", get(get_data))
+        .route("/*route", delete(delete_data))
         .with_state(state.clone());
 
     // Address to bind the server
@@ -469,7 +405,7 @@ async fn run_grpc_server(config: Config) -> Result<(), IOError> {
 
 fn initialize_cmd() -> Result<Config, IOError> {
     let matches = Command::new("Chimera - JSoN SeRVeR")
-        .version("0.5.0")
+        .version(CHIMERA_LATEST_VERSION)
         .author("Abhijith M S")
         .about("A powerful and fast⚡ JSoN SeRVeR built in Rust 🦀")
         .arg(Arg::new("port")
@@ -531,7 +467,7 @@ fn initialize_cmd() -> Result<Config, IOError> {
         result
     } else {
         let content: Value = serde_json::from_str(&json_content).expect("Invalid Json format");
-        println!("{:#?}", content);
+        // println!("{:#?}", content);
         if let Some(routes) = content.get("routes") {
             if routes.is_array() {
                 eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
@@ -548,6 +484,14 @@ fn initialize_cmd() -> Result<Config, IOError> {
         }
         content
     };
+
+    let mut spaces = 0;
+    let mut longest_path = 0;
+
+    if let Some((key, len)) = find_key_and_id_lengths(&parsed_content) {
+        spaces = len;
+        longest_path = key;
+    }
 
     let mut sort_rules: HashMap<String, (String, String)> = HashMap::new();
     if let Some(sort_args) = matches.get_many::<String>("sort") {
@@ -569,6 +513,8 @@ fn initialize_cmd() -> Result<Config, IOError> {
         latency: sim_latency,
         sort_rules: sort_rules,
         paginate: pagination_factor,
+        max_request_path_id_length: spaces,
+        max_request_path_len: longest_path,
     })
 }
 
@@ -578,8 +524,8 @@ async fn main() -> Result<(), IOError> {
 ╔═╗┬ ┬┬┌┬┐┌─┐┬─┐┌─┐
 ║  ├─┤││││├┤ ├┬┘├─┤
 ╚═╝┴ ┴┴┴ ┴└─┘┴└─┴ ┴
-v0.5.0
-    ");
+v{}
+    ", CHIMERA_LATEST_VERSION);
 
     let config_data = initialize_cmd()?;
 

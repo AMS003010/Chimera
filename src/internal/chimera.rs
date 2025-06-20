@@ -14,6 +14,8 @@ pub struct Config {
     pub latency: u64,
     pub sort_rules: HashMap<String, (String, String)>,
     pub paginate: u64,
+    pub max_request_path_id_length: usize,
+    pub max_request_path_len: usize,
 }
 
 pub struct AppState {
@@ -23,4 +25,13 @@ pub struct AppState {
     pub latency: u64,
     pub sort_rules: HashMap<String, (String, String)>,
     pub paginate: u64,
+    pub max_request_path_id_length: usize,
+    pub max_request_path_len: usize,
 }
+
+pub const CHIMERA_LATEST_VERSION: &str = "0.5.0";
+
+// Change VERSION in https://img.shields.io/badge/version-0.5.0-blue.svg
+// Change VERSION in Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.5.0/chimera-windows.exe" -OutFile "chimera.exe"
+// Change VERSION in docs (website)
+// Change VERSION in Cargo.toml
