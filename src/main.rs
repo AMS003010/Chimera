@@ -13,7 +13,6 @@ use axum::{
 };
 use chrono::Local;
 use clap::{Arg, Command};
-use colored::*;
 use hyper::server::Server;
 use local_ip_address::local_ip;
 use serde_json::Value;
