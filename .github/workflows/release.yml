@@ -35,15 +35,26 @@ jobs:
     - name: Build release binary
       run: cargo build --release --target ${{ matrix.target }}
 
-    - name: Prepare binary
+    - name: Rename and zip binary
       run: |
         mkdir dist
-        cp target/${{ matrix.target }}/release/${{ matrix.file }} dist/
+
+        # Determine base binary name and extension
+        BINARY=chimera
+        EXT=""
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          EXT=".exe"
+        fi
+
+        # Copy and rename binary
+        cp target/${{ matrix.target }}/release/$BINARY$EXT dist/${{ matrix.file }}
+
+        # Zip it
         cd dist
         zip ${{ matrix.file }}.zip ${{ matrix.file }}
       shell: bash
 
-    - name: Upload binary to GitHub Release
+    - name: Upload zipped binary to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         files: dist/${{ matrix.file }}.zip
