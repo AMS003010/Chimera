@@ -72,6 +72,9 @@ pub fn log_request(
     let method_display = match method {
         "GET" => " GET    ".bright_white().on_green(),
         "DELETE" => " DELETE ".bright_white().on_red(),
+        "PUT" => " PUT    ".bright_white().on_green(),
+        "PATCH" => " PATCH  ".bright_white().on_green(),
+        "POST" => " POST   ".bright_white().on_green(),
         _ => method.to_string().bright_white().on_green(),
     };
     let space_padding = key_len + id_len + 2 - path.len();

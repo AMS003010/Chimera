@@ -8,8 +8,9 @@ use axum::{
     extract::{Path, State},
     http::{StatusCode, Uri},
     response::{IntoResponse, Response},
-    routing::{delete, get},
+    routing::{delete, get, put, patch, post},
     Router,
+    Json,
 };
 use chrono::Local;
 use clap::{Arg, Command};
@@ -299,6 +300,353 @@ async fn delete_data(
     }
 }
 
+
+// POST handler - Create new records
+async fn post_data(
+    Path(route): Path<String>,
+    State(state): State<Arc<AppState>>,
+    uri: Uri,
+    Json(payload): Json<Value>,
+) -> Response {
+    let start_time = Instant::now();
+
+    // Get these before locking
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = uri.path();
+
+    // Add the Latency
+    sleep(Duration::from_millis(state.latency)).await;
+
+    // Handle the POST operation
+    let post_result = {
+        let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
+            Ok(lock) => lock,
+            Err(_) => {
+                let elapsed = start_time.elapsed().as_millis();
+                log_request(
+                    &date_time,
+                    "500",
+                    "POST",
+                    &requested_path,
+                    true,
+                    elapsed,
+                    state.max_request_path_len,
+                    state.max_request_path_id_length,
+                    0,
+                );
+                return server_busy_response();
+            }
+        };
+
+        if let Value::Object(ref mut obj) = *json_data {
+            match obj.get_mut(&route) {
+                Some(Value::Array(arr)) => {
+                    match payload {
+                        Value::Array(new_items) => {
+                            let added_count = new_items.len();
+                            arr.extend(new_items);
+                            ("201", format!("Added {} record(s) successfully", added_count), added_count)
+                        }
+                        single_item => {
+                            arr.push(single_item);
+                            ("201", "Record added successfully".to_string(), 1)
+                        }
+                    }
+                }
+                Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
+                None => {
+                    // Create new route with the payload
+                    match payload {
+                        Value::Array(items) => {
+                            let added_count = items.len();
+                            obj.insert(route.clone(), Value::Array(items));
+                            ("201", format!("Created route and added {} record(s)", added_count), added_count)
+                        }
+                        single_item => {
+                            obj.insert(route.clone(), Value::Array(vec![single_item]));
+                            ("201", "Created route and added record".to_string(), 1)
+                        }
+                    }
+                }
+            }
+        } else {
+            ("500", "Root JSON is not an object".to_string(), 0)
+        }
+    };
+
+    let elapsed = start_time.elapsed().as_millis();
+    let (status_code, message, affected_records) = post_result;
+    
+    log_request(
+        &date_time,
+        status_code,
+        "POST",
+        &requested_path,
+        false,
+        elapsed,
+        state.max_request_path_len,
+        state.max_request_path_id_length,
+        affected_records,
+    );
+
+    match status_code {
+        "201" => (StatusCode::CREATED, message).into_response(),
+        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
+        "500" => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+    }
+}
+
+// PUT handler - Replace entire resource or create if not exists
+async fn put_data(
+    Path(route): Path<String>,
+    State(state): State<Arc<AppState>>,
+    uri: Uri,
+    Json(payload): Json<Value>,
+) -> Response {
+    let start_time = Instant::now();
+
+    // Get these before locking
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = uri.path();
+
+    // Add the Latency
+    sleep(Duration::from_millis(state.latency)).await;
+
+    // Handle the PUT operation
+    let put_result = {
+        let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
+            Ok(lock) => lock,
+            Err(_) => {
+                let elapsed = start_time.elapsed().as_millis();
+                log_request(
+                    &date_time,
+                    "500",
+                    "PUT",
+                    &requested_path,
+                    true,
+                    elapsed,
+                    state.max_request_path_len,
+                    state.max_request_path_id_length,
+                    0,
+                );
+                return server_busy_response();
+            }
+        };
+
+        if let Value::Object(ref mut obj) = *json_data {
+            // Check if we're updating a specific ID
+            if let Some(path_id) = route.split("/").last() {
+                if let Ok(id) = path_id.parse::<usize>() {
+                    // Extract base path (remove the ID part)
+                    let mut route_parts: Vec<&str> = route.split('/').collect();
+                    route_parts.pop();
+                    let base_path = route_parts.join("/");
+                    
+                    match obj.get_mut(&base_path) {
+                        Some(Value::Array(arr)) => {
+                            let mut found = false;
+                            for item in arr.iter_mut() {
+                                if let Some(item_id) = item.get("id").and_then(|id| id.as_u64()) {
+                                    if item_id == id as u64 {
+                                        *item = payload.clone();
+                                        // Ensure the ID is preserved
+                                        if let Value::Object(ref mut item_obj) = item {
+                                            item_obj.insert("id".to_string(), Value::Number(serde_json::Number::from(id)));
+                                        }
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if found {
+                                ("200", format!("Updated record with id {}", id), 1)
+                            } else {
+                                // Create new record with the specified ID
+                                let mut new_item = payload.clone();
+                                if let Value::Object(ref mut item_obj) = new_item {
+                                    item_obj.insert("id".to_string(), Value::Number(serde_json::Number::from(id)));
+                                }
+                                arr.push(new_item);
+                                ("201", format!("Created record with id {}", id), 1)
+                            }
+                        }
+                        Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
+                        None => ("404", "Route not registered !!".to_string(), 0),
+                    }
+                } else {
+                    // Replace entire collection
+                    let record_count = match &payload {
+                        Value::Array(arr) => arr.len(),
+                        _ => 1,
+                    };
+                    let was_existing = obj.contains_key(&route);
+                    obj.insert(route.clone(), payload);
+                    
+                    if was_existing {
+                        ("200", format!("Replaced entire collection with {} record(s)", record_count), record_count)
+                    } else {
+                        ("201", format!("Created collection with {} record(s)", record_count), record_count)
+                    }
+                }
+            } else {
+                // Replace entire collection
+                let record_count = match &payload {
+                    Value::Array(arr) => arr.len(),
+                    _ => 1,
+                };
+                let was_existing = obj.contains_key(&route);
+                obj.insert(route.clone(), payload);
+                
+                if was_existing {
+                    ("200", format!("Replaced entire collection with {} record(s)", record_count), record_count)
+                } else {
+                    ("201", format!("Created collection with {} record(s)", record_count), record_count)
+                }
+            }
+        } else {
+            ("500", "Root JSON is not an object".to_string(), 0)
+        }
+    };
+
+    let elapsed = start_time.elapsed().as_millis();
+    let (status_code, message, affected_records) = put_result;
+    
+    log_request(
+        &date_time,
+        status_code,
+        "PUT",
+        &requested_path,
+        false,
+        elapsed,
+        state.max_request_path_len,
+        state.max_request_path_id_length,
+        affected_records,
+    );
+
+    match status_code {
+        "200" => (StatusCode::OK, message).into_response(),
+        "201" => (StatusCode::CREATED, message).into_response(),
+        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
+        "404" => (StatusCode::NOT_FOUND, message).into_response(),
+        "500" => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+    }
+}
+
+// PATCH handler - Partial update of existing resource
+async fn patch_data(
+    Path(route): Path<String>,
+    State(state): State<Arc<AppState>>,
+    uri: Uri,
+    Json(payload): Json<Value>,
+) -> Response {
+    let start_time = Instant::now();
+
+    // Get these before locking
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = uri.path();
+
+    // Add the Latency
+    sleep(Duration::from_millis(state.latency)).await;
+
+    // Handle the PATCH operation
+    let patch_result = {
+        let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
+            Ok(lock) => lock,
+            Err(_) => {
+                let elapsed = start_time.elapsed().as_millis();
+                log_request(
+                    &date_time,
+                    "500",
+                    "PATCH",
+                    &requested_path,
+                    true,
+                    elapsed,
+                    state.max_request_path_len,
+                    state.max_request_path_id_length,
+                    0,
+                );
+                return server_busy_response();
+            }
+        };
+
+        if let Value::Object(ref mut obj) = *json_data {
+            // Check if we're updating a specific ID
+            if let Some(path_id) = route.split("/").last() {
+                if let Ok(id) = path_id.parse::<usize>() {
+                    // Extract base path (remove the ID part)
+                    let mut route_parts: Vec<&str> = route.split('/').collect();
+                    route_parts.pop();
+                    let base_path = route_parts.join("/");
+                    
+                    match obj.get_mut(&base_path) {
+                        Some(Value::Array(arr)) => {
+                            let mut found = false;
+                            for item in arr.iter_mut() {
+                                if let Some(item_id) = item.get("id").and_then(|id| id.as_u64()) {
+                                    if item_id == id as u64 {
+                                        // Merge the payload into the existing item
+                                        if let (Value::Object(existing), Value::Object(updates)) = (item, &payload) {
+                                            for (key, value) in updates {
+                                                existing.insert(key.clone(), value.clone());
+                                            }
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if found {
+                                ("200", format!("Partially updated record with id {}", id), 1)
+                            } else {
+                                ("404", format!("No record found with id {}", id), 0)
+                            }
+                        }
+                        Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
+                        None => ("404", "Route not registered !!".to_string(), 0),
+                    }
+                } else {
+                    ("400", "PATCH requires a specific resource ID".to_string(), 0)
+                }
+            } else {
+                ("400", "PATCH requires a specific resource ID".to_string(), 0)
+            }
+        } else {
+            ("500", "Root JSON is not an object".to_string(), 0)
+        }
+    };
+
+    let elapsed = start_time.elapsed().as_millis();
+    let (status_code, message, affected_records) = patch_result;
+    
+    log_request(
+        &date_time,
+        status_code,
+        "PATCH",
+        &requested_path,
+        false,
+        elapsed,
+        state.max_request_path_len,
+        state.max_request_path_id_length,
+        affected_records,
+    );
+
+    match status_code {
+        "200" => (StatusCode::OK, message).into_response(),
+        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
+        "404" => (StatusCode::NOT_FOUND, message).into_response(),
+        "500" => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+    }
+}
+
+
 async fn run_axum_server(config: Config) -> Result<(), IOError> {
     // Create AppState from Config
     let state = Arc::new(AppState {
@@ -317,6 +665,9 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
         .route("/", get(ping_pong))
         .route("/*route", get(get_data))
         .route("/*route", delete(delete_data))
+        .route("/*route", post(post_data))
+        .route("/*route", put(put_data))
+        .route("/*route", patch(patch_data))
         .with_state(state.clone());
 
     // Address to bind the server
