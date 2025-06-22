@@ -12,13 +12,15 @@ use axum::{
     Router,
     Json,
     http::Method,
+    Form,
 };
 use chrono::Local;
 use clap::{Arg, Command};
 use colored::Colorize;
 use hyper::server::Server;
 use local_ip_address::local_ip;
-use serde_json::Value;
+use serde_json::{json, Value};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::Error as IOError;
 use std::process;
@@ -35,6 +37,12 @@ mod internal {
     pub mod helpers;
     pub mod json_data_generate;
     pub mod port;
+}
+
+#[derive(Deserialize)]
+struct FormData {
+    #[serde(flatten)]
+    fields: HashMap<String, String>,
 }
 
 async fn ping_pong() -> impl IntoResponse {
@@ -88,7 +96,7 @@ async fn get_data(
                     "500",
                     "GET",
                     &requested_path,
-                    true,
+                    "Server busy !!",
                     elapsed,
                     state.max_request_path_len,
                     state.max_request_path_id_length,
@@ -117,7 +125,7 @@ async fn get_data(
                         "200",
                         "GET",
                         &requested_path,
-                        false,
+                        "false",
                         elapsed,
                         state.max_request_path_len,
                         state.max_request_path_id_length,
@@ -151,7 +159,7 @@ async fn get_data(
                 "200",
                 "GET",
                 &requested_path,
-                false,
+                "false",
                 elapsed,
                 state.max_request_path_len,
                 state.max_request_path_id_length,
@@ -166,7 +174,7 @@ async fn get_data(
                 "404",
                 "GET",
                 &requested_path,
-                false,
+                "Route not registered !!",
                 elapsed,
                 state.max_request_path_len,
                 state.max_request_path_id_length,
@@ -204,7 +212,7 @@ async fn delete_data(
                         "500",
                         "DELETE",
                         &requested_path,
-                        true,
+                        "Server busy !!",
                         elapsed,
                         state.max_request_path_len,
                         state.max_request_path_id_length,
@@ -288,7 +296,7 @@ async fn delete_data(
         status_code,
         "DELETE",
         &requested_path,
-        false,
+        "false",
         elapsed,
         state.max_request_path_len,
         state.max_request_path_id_length,
@@ -304,8 +312,6 @@ async fn delete_data(
     }
 }
 
-
-// POST handler - Create new records
 async fn post_data(
     Path(route): Path<String>,
     State(state): State<Arc<AppState>>,
@@ -333,7 +339,7 @@ async fn post_data(
                     "500",
                     "POST",
                     &requested_path,
-                    true,
+                    "Server busy !!",
                     elapsed,
                     state.max_request_path_len,
                     state.max_request_path_id_length,
@@ -387,7 +393,7 @@ async fn post_data(
         status_code,
         "POST",
         &requested_path,
-        false,
+        "false",
         elapsed,
         state.max_request_path_len,
         state.max_request_path_id_length,
@@ -402,7 +408,6 @@ async fn post_data(
     }
 }
 
-// PUT handler - Replace entire resource or create if not exists
 async fn put_data(
     Path(route): Path<String>,
     State(state): State<Arc<AppState>>,
@@ -430,7 +435,7 @@ async fn put_data(
                     "500",
                     "PUT",
                     &requested_path,
-                    true,
+                    "Server busy !!",
                     elapsed,
                     state.max_request_path_len,
                     state.max_request_path_id_length,
@@ -524,7 +529,7 @@ async fn put_data(
         status_code,
         "PUT",
         &requested_path,
-        false,
+        "false",
         elapsed,
         state.max_request_path_len,
         state.max_request_path_id_length,
@@ -541,7 +546,6 @@ async fn put_data(
     }
 }
 
-// PATCH handler - Partial update of existing resource
 async fn patch_data(
     Path(route): Path<String>,
     State(state): State<Arc<AppState>>,
@@ -569,7 +573,7 @@ async fn patch_data(
                     "500",
                     "PATCH",
                     &requested_path,
-                    true,
+                    "Server busy !!",
                     elapsed,
                     state.max_request_path_len,
                     state.max_request_path_id_length,
@@ -634,7 +638,7 @@ async fn patch_data(
         status_code,
         "PATCH",
         &requested_path,
-        false,
+        "false",
         elapsed,
         state.max_request_path_len,
         state.max_request_path_id_length,
@@ -650,6 +654,61 @@ async fn patch_data(
     }
 }
 
+async fn handle_form_submission(
+    State(state): State<Arc<AppState>>,
+    uri: Uri,
+    Form(form_data): Form<FormData>,
+) -> Response {
+    let start_time = Instant::now();
+
+    // Get these before locking
+    let now = Local::now();
+    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
+    let requested_path = uri.path();
+
+    // Add the Latency
+    sleep(Duration::from_millis(state.latency)).await;
+
+    if form_data.fields.is_empty() {
+        let elapsed = start_time.elapsed().as_millis();
+        log_request(
+            &date_time,
+            "422",
+            "POST",
+            &requested_path,
+            "Fields are empty!!",
+            elapsed,
+            state.max_request_path_len,
+            state.max_request_path_id_length,
+            0,
+        );
+        return (StatusCode::OK, axum::Json(json!(
+            {
+                "success": false,
+                "received": form_data.fields,
+            }
+        ))).into_response();
+    }
+
+    let elapsed = start_time.elapsed().as_millis();
+    log_request(
+        &date_time,
+        "200",
+        "POST",
+        &requested_path,
+        "false",
+        elapsed,
+        state.max_request_path_len,
+        state.max_request_path_id_length,
+        form_data.fields.len(),
+    );
+    return (StatusCode::OK, axum::Json(json!(
+        {
+            "success": true,
+            "received": form_data.fields,
+        }
+    ))).into_response();
+}
 
 async fn run_axum_server(config: Config) -> Result<(), IOError> {
     
@@ -708,6 +767,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     // Build router with Axum
     let app = Router::new()
         .route("/", get(ping_pong))
+        .route("/submit-form", post(handle_form_submission))
         .route("/*route", get(get_data))
         .route("/*route", delete(delete_data))
         .route("/*route", post(post_data))

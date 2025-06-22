@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use colored::*;
-use rayon::prelude::*;
+use rayon::{prelude::*, string};
 use serde_json::Value;
 
 pub async fn shutdown_signal() {
@@ -56,7 +56,7 @@ pub fn log_request(
     status: &str,
     method: &str,
     path: &str,
-    _is_error: bool,
+    _is_error: &str,
     elapsed: u128,
     key_len: usize,
     id_len: usize,
@@ -65,6 +65,7 @@ pub fn log_request(
     let status_display = match status {
         "200" => " 200 ".bold().white().on_blue(),
         "404" => " 404 ".bold().white().on_red(),
+        "422" => " 422 ".bold().white().on_red(),
         "500" => " 500 ".bold().white().on_green(),
         _ => " ??? ".bold().white().on_yellow(),
     };
@@ -80,18 +81,32 @@ pub fn log_request(
     let space_padding = key_len + id_len + 2 - path.len();
     let spaces = " ".repeat(space_padding);
 
-    println!(
-        "|{}| {} |{}| {}{}  | {}{}, {} {}",
-        status_display,
-        date_time.italic().dimmed(),
-        method_display,
-        path.italic(),
-        spaces,
-        elapsed.to_string().italic().dimmed(),
-        "ms".italic().dimmed(),
-        obj.to_string().italic().dimmed(),
-        "entries affected".italic().dimmed(),
-    );
+    if _is_error != "false" {
+        println!(
+            "|{}| {} |{}| {}{}  | {}{}, {}",
+            status_display,
+            date_time.italic().dimmed(),
+            method_display,
+            path.italic(),
+            spaces,
+            elapsed.to_string().italic().dimmed(),
+            "ms".italic().dimmed(),
+            _is_error.italic().dimmed(),
+        );  
+    } else {
+        println!(
+            "|{}| {} |{}| {}{}  | {}{}, {} {}",
+            status_display,
+            date_time.italic().dimmed(),
+            method_display,
+            path.italic(),
+            spaces,
+            elapsed.to_string().italic().dimmed(),
+            "ms".italic().dimmed(),
+            obj.to_string().italic().dimmed(),
+            "entries affected".italic().dimmed(),
+        );   
+    }
 }
 
 // Helper function for busy response
