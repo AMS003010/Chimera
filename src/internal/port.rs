@@ -1,5 +1,5 @@
-use std::net::{TcpListener, TcpStream};
 use colored::Colorize;
+use std::net::{TcpListener, TcpStream};
 
 pub fn find_available_port(mut port: u16) -> u16 {
     println!("[{}] Trying to bind to port {}", "INFO".green(), port);

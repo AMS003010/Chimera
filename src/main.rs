@@ -6,28 +6,26 @@ use crate::internal::json_data_generate::{generate_json_from_schema, JsonDataGen
 use crate::internal::port::find_available_port;
 use axum::{
     extract::{Path, State},
+    http::Method,
     http::{StatusCode, Uri},
     response::{IntoResponse, Response},
-    routing::{delete, get, put, patch, post},
-    Router,
-    Json,
-    http::Method,
-    Form,
+    routing::{delete, get, patch, post, put},
+    Form, Json, Router,
 };
 use chrono::Local;
 use clap::{Arg, Command};
 use colored::Colorize;
 use hyper::server::Server;
 use local_ip_address::local_ip;
-use serde_json::{json, Value};
 use serde::Deserialize;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::Error as IOError;
+use std::path::Path as Std_path;
 use std::process;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{fs, net::SocketAddr};
-use std::path::Path as Std_path;
 use tokio::sync::RwLock;
 use tokio::time::{sleep, timeout, Duration};
 use tower_http::cors::{Any, CorsLayer};
@@ -330,40 +328,43 @@ async fn post_data(
 
     // Handle the POST operation
     let post_result = {
-        let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
-            Ok(lock) => lock,
-            Err(_) => {
-                let elapsed = start_time.elapsed().as_millis();
-                log_request(
-                    &date_time,
-                    "500",
-                    "POST",
-                    &requested_path,
-                    "Server busy !!",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    0,
-                );
-                return server_busy_response();
-            }
-        };
+        let mut json_data =
+            match timeout(Duration::from_millis(100), state.json_value.write()).await {
+                Ok(lock) => lock,
+                Err(_) => {
+                    let elapsed = start_time.elapsed().as_millis();
+                    log_request(
+                        &date_time,
+                        "500",
+                        "POST",
+                        &requested_path,
+                        "Server busy !!",
+                        elapsed,
+                        state.max_request_path_len,
+                        state.max_request_path_id_length,
+                        0,
+                    );
+                    return server_busy_response();
+                }
+            };
 
         if let Value::Object(ref mut obj) = *json_data {
             match obj.get_mut(&route) {
-                Some(Value::Array(arr)) => {
-                    match payload {
-                        Value::Array(new_items) => {
-                            let added_count = new_items.len();
-                            arr.extend(new_items);
-                            ("201", format!("Added {} record(s) successfully", added_count), added_count)
-                        }
-                        single_item => {
-                            arr.push(single_item);
-                            ("201", "Record added successfully".to_string(), 1)
-                        }
+                Some(Value::Array(arr)) => match payload {
+                    Value::Array(new_items) => {
+                        let added_count = new_items.len();
+                        arr.extend(new_items);
+                        (
+                            "201",
+                            format!("Added {} record(s) successfully", added_count),
+                            added_count,
+                        )
                     }
-                }
+                    single_item => {
+                        arr.push(single_item);
+                        ("201", "Record added successfully".to_string(), 1)
+                    }
+                },
                 Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
                 None => {
                     // Create new route with the payload
@@ -371,7 +372,11 @@ async fn post_data(
                         Value::Array(items) => {
                             let added_count = items.len();
                             obj.insert(route.clone(), Value::Array(items));
-                            ("201", format!("Created route and added {} record(s)", added_count), added_count)
+                            (
+                                "201",
+                                format!("Created route and added {} record(s)", added_count),
+                                added_count,
+                            )
                         }
                         single_item => {
                             obj.insert(route.clone(), Value::Array(vec![single_item]));
@@ -387,7 +392,7 @@ async fn post_data(
 
     let elapsed = start_time.elapsed().as_millis();
     let (status_code, message, affected_records) = post_result;
-    
+
     log_request(
         &date_time,
         status_code,
@@ -426,24 +431,25 @@ async fn put_data(
 
     // Handle the PUT operation
     let put_result = {
-        let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
-            Ok(lock) => lock,
-            Err(_) => {
-                let elapsed = start_time.elapsed().as_millis();
-                log_request(
-                    &date_time,
-                    "500",
-                    "PUT",
-                    &requested_path,
-                    "Server busy !!",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    0,
-                );
-                return server_busy_response();
-            }
-        };
+        let mut json_data =
+            match timeout(Duration::from_millis(100), state.json_value.write()).await {
+                Ok(lock) => lock,
+                Err(_) => {
+                    let elapsed = start_time.elapsed().as_millis();
+                    log_request(
+                        &date_time,
+                        "500",
+                        "PUT",
+                        &requested_path,
+                        "Server busy !!",
+                        elapsed,
+                        state.max_request_path_len,
+                        state.max_request_path_id_length,
+                        0,
+                    );
+                    return server_busy_response();
+                }
+            };
 
         if let Value::Object(ref mut obj) = *json_data {
             // Check if we're updating a specific ID
@@ -453,7 +459,7 @@ async fn put_data(
                     let mut route_parts: Vec<&str> = route.split('/').collect();
                     route_parts.pop();
                     let base_path = route_parts.join("/");
-                    
+
                     match obj.get_mut(&base_path) {
                         Some(Value::Array(arr)) => {
                             let mut found = false;
@@ -463,21 +469,27 @@ async fn put_data(
                                         *item = payload.clone();
                                         // Ensure the ID is preserved
                                         if let Value::Object(ref mut item_obj) = item {
-                                            item_obj.insert("id".to_string(), Value::Number(serde_json::Number::from(id)));
+                                            item_obj.insert(
+                                                "id".to_string(),
+                                                Value::Number(serde_json::Number::from(id)),
+                                            );
                                         }
                                         found = true;
                                         break;
                                     }
                                 }
                             }
-                            
+
                             if found {
                                 ("200", format!("Updated record with id {}", id), 1)
                             } else {
                                 // Create new record with the specified ID
                                 let mut new_item = payload.clone();
                                 if let Value::Object(ref mut item_obj) = new_item {
-                                    item_obj.insert("id".to_string(), Value::Number(serde_json::Number::from(id)));
+                                    item_obj.insert(
+                                        "id".to_string(),
+                                        Value::Number(serde_json::Number::from(id)),
+                                    );
                                 }
                                 arr.push(new_item);
                                 ("201", format!("Created record with id {}", id), 1)
@@ -494,11 +506,19 @@ async fn put_data(
                     };
                     let was_existing = obj.contains_key(&route);
                     obj.insert(route.clone(), payload);
-                    
+
                     if was_existing {
-                        ("200", format!("Replaced entire collection with {} record(s)", record_count), record_count)
+                        (
+                            "200",
+                            format!("Replaced entire collection with {} record(s)", record_count),
+                            record_count,
+                        )
                     } else {
-                        ("201", format!("Created collection with {} record(s)", record_count), record_count)
+                        (
+                            "201",
+                            format!("Created collection with {} record(s)", record_count),
+                            record_count,
+                        )
                     }
                 }
             } else {
@@ -509,11 +529,19 @@ async fn put_data(
                 };
                 let was_existing = obj.contains_key(&route);
                 obj.insert(route.clone(), payload);
-                
+
                 if was_existing {
-                    ("200", format!("Replaced entire collection with {} record(s)", record_count), record_count)
+                    (
+                        "200",
+                        format!("Replaced entire collection with {} record(s)", record_count),
+                        record_count,
+                    )
                 } else {
-                    ("201", format!("Created collection with {} record(s)", record_count), record_count)
+                    (
+                        "201",
+                        format!("Created collection with {} record(s)", record_count),
+                        record_count,
+                    )
                 }
             }
         } else {
@@ -523,7 +551,7 @@ async fn put_data(
 
     let elapsed = start_time.elapsed().as_millis();
     let (status_code, message, affected_records) = put_result;
-    
+
     log_request(
         &date_time,
         status_code,
@@ -564,24 +592,25 @@ async fn patch_data(
 
     // Handle the PATCH operation
     let patch_result = {
-        let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
-            Ok(lock) => lock,
-            Err(_) => {
-                let elapsed = start_time.elapsed().as_millis();
-                log_request(
-                    &date_time,
-                    "500",
-                    "PATCH",
-                    &requested_path,
-                    "Server busy !!",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    0,
-                );
-                return server_busy_response();
-            }
-        };
+        let mut json_data =
+            match timeout(Duration::from_millis(100), state.json_value.write()).await {
+                Ok(lock) => lock,
+                Err(_) => {
+                    let elapsed = start_time.elapsed().as_millis();
+                    log_request(
+                        &date_time,
+                        "500",
+                        "PATCH",
+                        &requested_path,
+                        "Server busy !!",
+                        elapsed,
+                        state.max_request_path_len,
+                        state.max_request_path_id_length,
+                        0,
+                    );
+                    return server_busy_response();
+                }
+            };
 
         if let Value::Object(ref mut obj) = *json_data {
             // Check if we're updating a specific ID
@@ -591,7 +620,7 @@ async fn patch_data(
                     let mut route_parts: Vec<&str> = route.split('/').collect();
                     route_parts.pop();
                     let base_path = route_parts.join("/");
-                    
+
                     match obj.get_mut(&base_path) {
                         Some(Value::Array(arr)) => {
                             let mut found = false;
@@ -599,7 +628,9 @@ async fn patch_data(
                                 if let Some(item_id) = item.get("id").and_then(|id| id.as_u64()) {
                                     if item_id == id as u64 {
                                         // Merge the payload into the existing item
-                                        if let (Value::Object(existing), Value::Object(updates)) = (item, &payload) {
+                                        if let (Value::Object(existing), Value::Object(updates)) =
+                                            (item, &payload)
+                                        {
                                             for (key, value) in updates {
                                                 existing.insert(key.clone(), value.clone());
                                             }
@@ -609,7 +640,7 @@ async fn patch_data(
                                     }
                                 }
                             }
-                            
+
                             if found {
                                 ("200", format!("Partially updated record with id {}", id), 1)
                             } else {
@@ -620,10 +651,18 @@ async fn patch_data(
                         None => ("404", "Route not registered !!".to_string(), 0),
                     }
                 } else {
-                    ("400", "PATCH requires a specific resource ID".to_string(), 0)
+                    (
+                        "400",
+                        "PATCH requires a specific resource ID".to_string(),
+                        0,
+                    )
                 }
             } else {
-                ("400", "PATCH requires a specific resource ID".to_string(), 0)
+                (
+                    "400",
+                    "PATCH requires a specific resource ID".to_string(),
+                    0,
+                )
             }
         } else {
             ("500", "Root JSON is not an object".to_string(), 0)
@@ -632,7 +671,7 @@ async fn patch_data(
 
     let elapsed = start_time.elapsed().as_millis();
     let (status_code, message, affected_records) = patch_result;
-    
+
     log_request(
         &date_time,
         status_code,
@@ -682,12 +721,16 @@ async fn handle_form_submission(
             state.max_request_path_id_length,
             0,
         );
-        return (StatusCode::OK, axum::Json(json!(
-            {
-                "success": false,
-                "received": form_data.fields,
-            }
-        ))).into_response();
+        return (
+            StatusCode::OK,
+            axum::Json(json!(
+                {
+                    "success": false,
+                    "received": form_data.fields,
+                }
+            )),
+        )
+            .into_response();
     }
 
     let elapsed = start_time.elapsed().as_millis();
@@ -702,16 +745,19 @@ async fn handle_form_submission(
         state.max_request_path_id_length,
         form_data.fields.len(),
     );
-    return (StatusCode::OK, axum::Json(json!(
-        {
-            "success": true,
-            "received": form_data.fields,
-        }
-    ))).into_response();
+    return (
+        StatusCode::OK,
+        axum::Json(json!(
+            {
+                "success": true,
+                "received": form_data.fields,
+            }
+        )),
+    )
+        .into_response();
 }
 
 async fn run_axum_server(config: Config) -> Result<(), IOError> {
-    
     let state = Arc::new(AppState {
         json_value: config.json_value,
         latency: config.latency,
@@ -722,7 +768,8 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     });
 
     let cors_layer = if config.cors_enabled {
-        let allowed_origins = config.allowed_origins
+        let allowed_origins = config
+            .allowed_origins
             .iter()
             .filter_map(|origin| origin.parse::<axum::http::HeaderValue>().ok())
             .collect::<Vec<_>>();
@@ -759,7 +806,13 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     } else {
         println!("[{}] CORS: * \n", "INFO".green());
         CorsLayer::new()
-            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE])
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::PATCH,
+                Method::DELETE,
+            ])
             .allow_headers(Any)
             .allow_origin(Any)
     };
@@ -899,7 +952,10 @@ fn initialize_cmd() -> Result<Config, IOError> {
                 .filter(|s| !s.is_empty())
                 .collect();
         } else {
-            eprintln!("[{}] CORS enabled but chimera.cors file not found. Allowing all origins.", "WARN".yellow());
+            eprintln!(
+                "[{}] CORS enabled but chimera.cors file not found. Allowing all origins.",
+                "WARN".yellow()
+            );
         }
     }
 

@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use colored::*;
-use rayon::{prelude::*, string};
+use rayon::prelude::*;
 use serde_json::Value;
 
 pub async fn shutdown_signal() {
@@ -92,7 +92,7 @@ pub fn log_request(
             elapsed.to_string().italic().dimmed(),
             "ms".italic().dimmed(),
             _is_error.italic().dimmed(),
-        );  
+        );
     } else {
         println!(
             "|{}| {} |{}| {}{}  | {}{}, {} {}",
@@ -105,7 +105,7 @@ pub fn log_request(
             "ms".italic().dimmed(),
             obj.to_string().italic().dimmed(),
             "entries affected".italic().dimmed(),
-        );   
+        );
     }
 }
 
