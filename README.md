@@ -2,50 +2,57 @@
 
 # Chimera - The Only Mock API you will ever need ⚡
 
-[![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ams003010/chimera)](https://rust-reportcard.xuri.me/report/github.com/ams003010/chimera)
+<!-- [![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ams003010/chimera)](https://rust-reportcard.xuri.me/report/github.com/ams003010/chimera) -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
 
-Chimera is a blazing-fast, configurable JSON server built with Rust and Actix-web. It allows you to serve JSON files as APIs with sorting, pagination, simulated latency, and route-based retrieval. Ideal for prototyping, mock APIs, or rapid development.
+Chimera is a blazing-fast, configurable JSON server built with Axum. It allows you to serve JSON files as APIs with full CRUD support, sorting, pagination, simulated latency, and route-based retrieval. Ideal for prototyping, mock APIs, or rapid development.
 
-Now with **automatic data generation and null value simulation**, Chimera helps you mock more realistic and dynamic API responses effortlessly.
+Now with **automatic data generation**, **null value simulation**, **long path support**, **form submission**, and **CORS control**, Chimera helps you mock realistic and dynamic API responses effortlessly.
 
 ### Perfect for:
- - Mock HTTP API for Frontend Development
- - Mock HTTP API for Mobile App Development
- - IoT Device Simulation
- - Prototyping for Microservices
 
-### Future support for: 
- - Webhook Simulation (🪝)
- - GraphQL Mocking (⬢)
- - WebSocket Testing (🕸️)
- - gRPC Simulation (🌍)
- - MQTT Broker Simulation (🍔)
+* Mock HTTP API for Frontend Development
+* Mock HTTP API for Mobile App Development
+* IoT Device Simulation
+* Prototyping for Microservices
+
+### Future support for:
+
+* Webhook Simulation (🪝)
+* GraphQL Mocking (⬢)
+* WebSocket Testing (🕸️)
+* gRPC Simulation (🌍)
+* MQTT Broker Simulation (🍔)
 
 ## 🐲 Features
 
-- **Serve JSON as an API** – Load any JSON file and serve it as structured API endpoints.
-- **CRUD Support** – GET, POST, DELETE Support on all routes.
-- **Auto Data Generation** – Generate mock data automatically from schema-based definitions.
-- **Null Value Simulation** – Add controlled nulls to fields for realistic data modeling.
-- **Route-based Data Retrieval** – Fetch data by route and ID.
-- **Sorting Support** – Sort entries dynamically based on attributes.
-- **Pagination Support** – Limit the number of records per request.
-- **Simulated Latency** – Mimic real-world API delays for better testing.
-- **Ultra-Fast Performance** – Leveraging Rust and Actix-web for speed and efficiency.
-- **Easy Configuration** – Set up ports, file paths, latency, sorting, and pagination via CLI.
+* **Serve JSON as an API** – Load any JSON file and serve it as structured API endpoints.
+* **Full CRUD Support** – GET, POST, DELETE, PATCH, PUT supported on all routes.
+* **Support for Nested Routes** – Long paths like `/api/v2/data` are supported.
+* **Auto Data Generation** – Generate mock data automatically from schema-based definitions.
+* **Null Value Simulation** – Add controlled nulls to fields for realistic data modeling.
+* **Route-based Data Retrieval** – Fetch data by route and ID.
+* **Sorting Support** – Sort entries dynamically based on attributes.
+* **Pagination Support** – Limit the number of records per request.
+* **Simulated Latency** – Mimic real-world API delays for better testing.
+* **Ultra-Fast Performance** – Leveraging Rust and Axum for speed and efficiency.
+* **Easy Configuration** – Set up ports, file paths, latency, sorting, and pagination via CLI.
+* **Form Submission** – Supports `POST` form submissions at `/submit-form`.
+* **CORS Control** – Enable/disable CORS by specifying allowed domains in a `chimera.cors` file.
 
 ## 🐲 Installation
 
 ### On Windows
 
-On Powershell (Run as Administer)
+On Powershell (Run as Administrator)
+
 ```powershell
 Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.5.0/chimera-windows.exe" -OutFile "chimera.exe"
 ```
 
 On Powershell (non-privileged)
+
 ```powershell
 .\chimera.exe --path data.json
 ```
@@ -76,7 +83,7 @@ Here's all the available CLI commands
 
 `chimera.exe --path .\data.json --port 4000`: Start the Chimera server at port `4000`
 
-`chimera.exe --path .\data.json --sort products desc id`: Sort records in `/products` route by `id` in `asc` order
+`chimera.exe --path .\data.json --sort products desc id`: Sort records in `/products` route by `id` in `desc` order
 
 `chimera.exe --path .\data.json --page 3`: Start server with the records paginated with a factor `3`
 
@@ -84,31 +91,49 @@ Here's all the available CLI commands
 
 `chimera.exe --path .\schema.json -X`: Enable automatic data generation using schema from `schema.json`
 
-> [!NOTE]  
+`chimera.exe --path .\data.json --cors`: Enable CORS and allow only domains from `chimera.cors` file
+
+> \[!NOTE]
 > Use multiple arguments together for more diverse control
+
+### CORS Configuration
+
+To enable CORS, create a file named `chimera.cors` in the same directory as the binary with allowed domain(s):
+
+```
+http://localhost:3000
+https://example.com
+https://api.example.com
+https://*.example.org
+http://127.0.0.1:8080
+```
 
 ### API Endpoints
 
-| Method   | Endpoint        | Description                      |
-| -------- | --------------- | -------------------------------- |
-| `GET`    | `/`             | Health check                     |
-| `GET`    | `/{route}`      | Retrieve all data under a route  |
-| `GET`    | `/{route}/{id}` | Retrieve a specific record by ID |
-| `POST`   | `/{route}`      | Add a record under a route       |
-| `DELETE` | `/{route}`      | Delete all records under a route |
-| `DELETE` | `/{route}/{id}` | Delete a specific record by ID   |
+| Method   | Endpoint        | Description                              |
+| -------- | --------------- | ---------------------------------------- |
+| `GET`    | `/`             | Health check                             |
+| `GET`    | `/{route}`      | Retrieve all data under a route          |
+| `GET`    | `/{route}/{id}` | Retrieve a specific record by ID         |
+| `POST`   | `/{route}`      | Add a record under a route               |
+| `DELETE` | `/{route}`      | Delete all records under a route         |
+| `DELETE` | `/{route}/{id}` | Delete a specific record by ID           |
+| `PUT`    | `/{route}/{id}` | Replace a specific record by ID          |
+| `PATCH`  | `/{route}/{id}` | Partially update a specific record by ID |
+| `POST`   | `/submit-form`  | Handle form submissions (URL-encoded)    |
 
 ## 🔧 Auto Data Generation
 
 With the `-X` flag, Chimera can generate data on the fly using a schema JSON structure like:
+
 ```json
 {
     "routes": [
         {
-            "path":"data",
+            "path":"api/v2/data",
             "no_of_entries": 2,
             "schema": {
-                "mssg_id": "id",
+                "id": "id",
                 "created_on": "date",
                 "mssg": "lorem"
             },
@@ -116,31 +141,49 @@ With the `-X` flag, Chimera can generate data on the fly using a schema JSON str
         },
         {
             "path":"products",
-            "no_of_entries": 7,
+            "no_of_entries": 700,
             "schema": {
                 "id": "id",
                 "rsnd": "integer",
                 "name": "name",
-                "probability": "boolean"
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
+            },
+            "null_percentage": 0
+        },
+        {
+            "path":"api/products",
+            "no_of_entries": 70,
+            "schema": {
+                "id": "id",
+                "rsnd": "integer",
+                "name": "name",
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
             },
             "null_percentage": 0
         }
     ]
 }
 ```
+
 Pass this JSON file as an argument to `--path`
-- `path`: Name of the route
-- `no_of_entries`: Number of mock entries to generate
-- `schema`: Define fields and their data type
-  - `name`: Random name
-  - `id`: Random number
-  - `integer`: Random number
-  - `date`: Date in `DD-MM-YYYY` format
-  - `datetime`: Date in `DD-MM-YYYYTHH:MM:SS` format
-  - `lorem`: Random text
-  - `string`: Random word
-  - `boolean`: Random boolean value
-- `null_percentage`: Percentage of fields and rows to be randomly set as `null`
+
+* `path`: Name of the route
+* `no_of_entries`: Number of mock entries to generate
+* `schema`: Define fields and their data type
+
+  * `name`: Random name
+  * `id`: Random number
+  * `integer`: Random number
+  * `date`: Date in `DD-MM-YYYY` format
+  * `datetime`: Date in `DD-MM-YYYYTHH:MM:SS` format
+  * `lorem`: Random text
+  * `string`: Random word
+  * `boolean`: Random boolean value
+* `null_percentage`: Percentage of fields and rows to be randomly set as `null`
 
 ## 📜 Example Data JSON File (`data.json`)
 
@@ -148,32 +191,28 @@ Pass this JSON file as an argument to `--path`
 {
     "data":[
         {
-            "mssg_id":1,
+            "id":1,
             "created_on":"25-03-24",
-            "mssg":"It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for"
+            "mssg":"Why spiders? Why couldn’t it be ‘follow the butterflies’?"
         },
         {
-            "mssg_id":2,
+            "id":2,
             "created_on":"02-11-24",
-            "mssg":"years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, fro"
+            "mssg":"He can run faster than Severus Snape confronted with shampoo."
         }
     ],
-    "products": [
+    "api/products": [
         {
-            "id":8,
-            "name": "ball"
+            "id":80,
+            "name": "veritaserum"
         },
         {
-            "id":4,
-            "name": "table"
+            "id":40,
+            "name": "polyjuice potion"
         },
         {
-            "id":6,
-            "name": "ball"
-        },
-        {
-            "id":7,
-            "name": "ball"
+            "id":60,
+            "name": "felix felicis"
         }
     ]
 }
@@ -185,10 +224,10 @@ Pass this JSON file as an argument to `--path`
 {
     "routes": [
         {
-            "path":"data",
+            "path":"api/v2/data",
             "no_of_entries": 2,
             "schema": {
-                "mssg_id": "id",
+                "id": "id",
                 "created_on": "date",
                 "mssg": "lorem"
             },
@@ -196,12 +235,27 @@ Pass this JSON file as an argument to `--path`
         },
         {
             "path":"products",
-            "no_of_entries": 7,
+            "no_of_entries": 700,
             "schema": {
                 "id": "id",
                 "rsnd": "integer",
                 "name": "name",
-                "probability": "boolean"
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
+            },
+            "null_percentage": 0
+        },
+        {
+            "path":"api/products",
+            "no_of_entries": 70,
+            "schema": {
+                "id": "id",
+                "rsnd": "integer",
+                "name": "name",
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
             },
             "null_percentage": 0
         }
@@ -210,7 +264,9 @@ Pass this JSON file as an argument to `--path`
 ```
 
 ## 🐲 Maintainers
+
 This project is maintained by [@AMS003010](https://github.com/AMS003010).
 
 ## 🐲 License
+
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
