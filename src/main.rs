@@ -51,12 +51,14 @@ async fn get_data(
     uri: Uri,
 ) -> Response {
     let start_time = Instant::now();
-    sleep(Duration::from_millis(state.latency)).await;
 
     // Get these before locking
     let now = Local::now();
     let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
     let requested_path = uri.path();
+
+    // Add the Latency
+    sleep(Duration::from_millis(state.latency)).await;
 
     // Clone only the needed data immediately after acquiring lock
     let route_data = {
@@ -176,62 +178,125 @@ async fn delete_data(
     State(state): State<Arc<AppState>>,
     uri: Uri,
 ) -> Response {
-    sleep(Duration::from_millis(state.latency)).await;
+    let start_time = Instant::now();
 
+    // Get these before locking
     let now = Local::now();
     let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
     let requested_path = uri.path();
 
-    let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
-        Ok(lock) => lock,
-        Err(_) => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 500 ".bold().white().on_green(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Server is busy, try again later.",
-            )
-                .into_response();
+    // Add the Latency
+    sleep(Duration::from_millis(state.latency)).await;
+
+    // Handle the DELETE operation
+    let delete_result = {
+        let mut json_data =
+            match timeout(Duration::from_millis(100), state.json_value.write()).await {
+                Ok(lock) => lock,
+                Err(_) => {
+                    let elapsed = start_time.elapsed().as_millis();
+                    log_request(
+                        &date_time,
+                        "500",
+                        "DELETE",
+                        &requested_path,
+                        true,
+                        elapsed,
+                        state.max_request_path_len,
+                        state.max_request_path_id_length,
+                        0,
+                    );
+                    return server_busy_response();
+                }
+            };
+
+        // Check if we're deleting a specific ID
+        if let Some(path_id) = route.split("/").last() {
+            if let Ok(id) = path_id.parse::<usize>() {
+                // Extract base path (remove the ID part)
+                let mut route_parts: Vec<&str> = route.split('/').collect();
+                route_parts.pop();
+                let base_path = route_parts.join("/");
+
+                match json_data.get_mut(&base_path) {
+                    Some(Value::Array(arr)) => {
+                        let original_len = arr.len();
+                        arr.retain(|obj| {
+                            obj.get("id")
+                                .and_then(|id_val| id_val.as_u64())
+                                .map_or(true, |id_num| id_num != id as u64)
+                        });
+                        let deleted_count = original_len - arr.len();
+
+                        if deleted_count > 0 {
+                            (
+                                "200",
+                                format!("Deleted {} record(s) with id {}", deleted_count, id),
+                                deleted_count,
+                            )
+                        } else {
+                            ("404", format!("No record found with id {}", id), 0)
+                        }
+                    }
+                    Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
+                    None => ("404", "Route not registered !!".to_string(), 0),
+                }
+            } else {
+                // Delete entire collection
+                match json_data.get_mut(&route) {
+                    Some(Value::Array(arr)) => {
+                        let deleted_count = arr.len();
+                        arr.clear();
+                        (
+                            "200",
+                            "All records deleted successfully".to_string(),
+                            deleted_count,
+                        )
+                    }
+                    Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
+                    None => ("404", "Route not registered !!".to_string(), 0),
+                }
+            }
+        } else {
+            // Delete entire collection
+            match json_data.get_mut(&route) {
+                Some(Value::Array(arr)) => {
+                    let deleted_count = arr.len();
+                    arr.clear();
+                    (
+                        "200",
+                        "All records deleted successfully".to_string(),
+                        deleted_count,
+                    )
+                }
+                Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
+                None => ("404", "Route not registered !!".to_string(), 0),
+            }
         }
     };
 
-    match json_data.get_mut(&route) {
-        Some(Value::Array(arr)) => {
-            arr.clear();
-            println!(
-                "|{}| {} |{}| {}",
-                " 200 ".bold().white().on_blue(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (StatusCode::OK, "All records deleted successfully").into_response();
-        }
-        Some(_) => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 400 ".bold().white().on_yellow(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (StatusCode::BAD_REQUEST, "Route exists but is not an array.").into_response();
-        }
-        None => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 404 ".bold().white().on_red(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (StatusCode::NOT_FOUND, "Route not registered 3 !!").into_response();
-        }
+    let elapsed = start_time.elapsed().as_millis();
+    let (status_code, message, affected_records) = delete_result;
+
+    // Log the request
+    log_request(
+        &date_time,
+        status_code,
+        "DELETE",
+        &requested_path,
+        false,
+        elapsed,
+        state.max_request_path_len,
+        state.max_request_path_id_length,
+        affected_records,
+    );
+
+    // Return appropriate response
+    match status_code {
+        "200" => (StatusCode::OK, message).into_response(),
+        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
+        "404" => (StatusCode::NOT_FOUND, message).into_response(),
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
     }
 }
 

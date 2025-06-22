@@ -71,6 +71,7 @@ pub fn log_request(
 
     let method_display = match method {
         "GET" => " GET    ".bright_white().on_green(),
+        "DELETE" => " DELETE ".bright_white().on_red(),
         _ => method.to_string().bright_white().on_green(),
     };
     let space_padding = key_len + id_len + 2 - path.len();
@@ -86,7 +87,7 @@ pub fn log_request(
         elapsed.to_string().italic().dimmed(),
         "ms".italic().dimmed(),
         obj.to_string().italic().dimmed(),
-        "entries".italic().dimmed(),
+        "entries affected".italic().dimmed(),
     );
 }
 
