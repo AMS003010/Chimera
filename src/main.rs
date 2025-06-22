@@ -11,6 +11,7 @@ use axum::{
     routing::{delete, get, put, patch, post},
     Router,
     Json,
+    http::Method,
 };
 use chrono::Local;
 use clap::{Arg, Command};
@@ -23,8 +24,10 @@ use std::process;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{fs, net::SocketAddr};
+use std::path::Path as Std_path;
 use tokio::sync::RwLock;
 use tokio::time::{sleep, timeout, Duration};
+use tower_http::cors::{Any, CorsLayer};
 
 mod internal {
     pub mod chimera;
@@ -648,10 +651,8 @@ async fn patch_data(
 
 
 async fn run_axum_server(config: Config) -> Result<(), IOError> {
-    // Create AppState from Config
+    
     let state = Arc::new(AppState {
-        path: config.path,
-        port: config.port,
         json_value: config.json_value,
         latency: config.latency,
         sort_rules: config.sort_rules,
@@ -659,6 +660,49 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
         max_request_path_id_length: config.max_request_path_id_length,
         max_request_path_len: config.max_request_path_len,
     });
+
+    let cors_layer = if config.cors_enabled {
+        let allowed_origins = config.allowed_origins
+            .iter()
+            .filter_map(|origin| origin.parse::<axum::http::HeaderValue>().ok())
+            .collect::<Vec<_>>();
+
+        if config.allowed_origins.is_empty() {
+            println!("[INFO] Cors: * \n");
+            CorsLayer::new()
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any)
+                .allow_origin(Any)
+                .allow_credentials(false)
+        } else {
+            println!("[INFO] Cors: chimera.cors\n");
+            CorsLayer::new()
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any)
+                .allow_origin(allowed_origins)
+                .allow_credentials(false)
+        }
+    } else {
+        println!("[INFO] Cors: * \n");
+        CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE])
+            .allow_headers(Any)
+            .allow_origin(Any)
+    };
 
     // Build router with Axum
     let app = Router::new()
@@ -668,6 +712,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
         .route("/*route", post(post_data))
         .route("/*route", put(put_data))
         .route("/*route", patch(patch_data))
+        .layer(cors_layer)
         .with_state(state.clone());
 
     // Address to bind the server
@@ -747,6 +792,10 @@ fn initialize_cmd() -> Result<Config, IOError> {
             .num_args(1)
             .default_value("http")
             .help("The protocol to use for the Mock API"))
+        .arg(Arg::new("cors")
+            .long("cors")
+            .num_args(0)
+            .help("Enable CORS support (reads allowed domains from chimera.cors file)"))
         .get_matches();
 
     let json_file_path = matches
@@ -776,6 +825,22 @@ fn initialize_cmd() -> Result<Config, IOError> {
         .parse::<u64>()
         .expect("Invalid page format");
     let auto_generate_enabled = matches.get_flag("auto_generate_data");
+    let cors_enabled = matches.get_flag("cors");
+    let mut allowed_origins = Vec::new();
+
+    if cors_enabled {
+        let cors_file = "chimera.cors";
+        if Std_path::new(cors_file).exists() {
+            allowed_origins = fs::read_to_string(cors_file)
+                .unwrap_or_default()
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        } else {
+            eprintln!("Warning: CORS enabled but chimera.cors file not found. Allowing all origins.");
+        }
+    }
 
     let json_content = fs::read_to_string(&json_file_path).expect("Failed to read Json File");
 
@@ -834,6 +899,8 @@ fn initialize_cmd() -> Result<Config, IOError> {
         paginate: pagination_factor,
         max_request_path_id_length: spaces,
         max_request_path_len: longest_path,
+        cors_enabled: cors_enabled,
+        allowed_origins: allowed_origins,
     })
 }
 

@@ -16,11 +16,11 @@ pub struct Config {
     pub paginate: u64,
     pub max_request_path_id_length: usize,
     pub max_request_path_len: usize,
+    pub cors_enabled: bool,
+    pub allowed_origins: Vec<String>,
 }
 
 pub struct AppState {
-    pub path: String,
-    pub port: u16,
     pub json_value: Arc<RwLock<Value>>,
     pub latency: u64,
     pub sort_rules: HashMap<String, (String, String)>,

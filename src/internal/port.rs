@@ -4,7 +4,7 @@ pub fn find_available_port(mut port: u16) -> u16 {
     println!("[INFO] Trying to bind to port {}", port);
     loop {
         if is_port_ok(port) {
-            println!("[INFO] Port {} is available\n", port);
+            println!("[INFO] Port {} is available", port);
             return port;
         }
         port += 1;
