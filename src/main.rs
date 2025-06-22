@@ -1,48 +1,54 @@
-use std::io::Error as IOError;
-use std::process;
-use std::time::Instant;
-use std::collections::HashMap;
-use std::{fs, net::SocketAddr};
-use std::sync::Arc;
+use crate::internal::chimera::{AppState, Config, CHIMERA_LATEST_VERSION};
+use crate::internal::helpers::{
+    compare_values, find_key_and_id_lengths, log_request, server_busy_response, shutdown_signal,
+};
+use crate::internal::json_data_generate::{generate_json_from_schema, JsonDataGeneratorSchema};
+use crate::internal::port::find_available_port;
 use axum::{
     extract::{Path, State},
-    routing::{get, delete},
-    Router, response::{IntoResponse, Response},
-    http::{StatusCode, Uri}
+    http::{StatusCode, Uri},
+    response::{IntoResponse, Response},
+    routing::{delete, get},
+    Router,
 };
-use hyper::server::Server;
-use tokio::time::{sleep, Duration, timeout};
-use tokio::sync::RwLock;
-use clap::{Arg, Command};
-use serde_json::Value;
-use colored::*;
 use chrono::Local;
-use rayon::prelude::*;
+use clap::{Arg, Command};
+use colored::*;
+use hyper::server::Server;
 use local_ip_address::local_ip;
-use crate::internal::chimera::{Config, AppState, CHIMERA_LATEST_VERSION};
-use crate::internal::port::find_available_port;
-use crate::internal::json_data_generate::{JsonDataGeneratorSchema, generate_json_from_schema};
-use crate::internal::helpers::{shutdown_signal, compare_values, log_request, server_busy_response, find_key_and_id_lengths};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::io::Error as IOError;
+use std::process;
+use std::sync::Arc;
+use std::time::Instant;
+use std::{fs, net::SocketAddr};
+use tokio::sync::RwLock;
+use tokio::time::{sleep, timeout, Duration};
 
 mod internal {
     pub mod chimera;
-    pub mod port;
-    pub mod json_data_generate;
     pub mod helpers;
+    pub mod json_data_generate;
+    pub mod port;
 }
 
 async fn ping_pong() -> impl IntoResponse {
     (
         StatusCode::OK,
         [("content-type", "text/plain")],
-        format!("status: ONLINE\nversion: {}\n🐲 All systems fused and breathing fire.", CHIMERA_LATEST_VERSION).to_string()
+        format!(
+            "status: ONLINE\nversion: {}\n🐲 All systems fused and breathing fire.",
+            CHIMERA_LATEST_VERSION
+        )
+        .to_string(),
     )
 }
 
 async fn get_data(
-    Path(route): Path<String>, 
-    State(state): State<Arc<AppState>>, 
-    uri: Uri
+    Path(route): Path<String>,
+    State(state): State<Arc<AppState>>,
+    uri: Uri,
 ) -> Response {
     let start_time = Instant::now();
     sleep(Duration::from_millis(state.latency)).await;
@@ -55,18 +61,66 @@ async fn get_data(
     // Clone only the needed data immediately after acquiring lock
     let route_data = {
         let json_data = match timeout(Duration::from_millis(100), state.json_value.read()).await {
-            Ok(lock) => lock.get(&route).cloned(),
+            Ok(lock) => {
+                if let Some(path_id) = route.split("/").last() {
+                    if let Ok(_id) = path_id.parse::<usize>() {
+                        let mut route_parts: Vec<&str> = route.split('/').collect();
+                        route_parts.pop();
+                        let base_path = route_parts.join("/");
+                        lock.get(&base_path).cloned()
+                    } else {
+                        lock.get(&route).cloned()
+                    }
+                } else {
+                    lock.get(&route).cloned()
+                }
+            }
             Err(_) => {
                 let elapsed = start_time.elapsed().as_millis();
-                log_request(&date_time, "500", "GET", &requested_path, true, elapsed, state.max_request_path_len, state.max_request_path_id_length, 0);
+                log_request(
+                    &date_time,
+                    "500",
+                    "GET",
+                    &requested_path,
+                    true,
+                    elapsed,
+                    state.max_request_path_len,
+                    state.max_request_path_id_length,
+                    0,
+                );
                 return server_busy_response();
-            },
+            }
         };
         json_data
     };
 
     match route_data {
         Some(mut value) => {
+            if let Some(path_id) = route.split("/").last() {
+                if let Ok(_id) = path_id.parse::<usize>() {
+                    if let Value::Array(ref mut arr) = value {
+                        arr.retain(|obj| {
+                            obj.get("id")
+                                .and_then(|id| id.as_u64())
+                                .map_or(false, |id_num| id_num == _id as u64)
+                        });
+                    }
+                    let elapsed = start_time.elapsed().as_millis();
+                    log_request(
+                        &date_time,
+                        "200",
+                        "GET",
+                        &requested_path,
+                        false,
+                        elapsed,
+                        state.max_request_path_len,
+                        state.max_request_path_id_length,
+                        value.as_array().map_or(0, |arr| arr.len()),
+                    );
+                    return (StatusCode::OK, axum::Json(value)).into_response();
+                }
+            }
+
             // Rest of processing happens WITHOUT holding the lock
             if let Some((order, key)) = state.sort_rules.get(&route) {
                 if let Value::Array(arr) = &mut value {
@@ -86,107 +140,42 @@ async fn get_data(
             }
 
             let elapsed = start_time.elapsed().as_millis();
-            log_request(&date_time, "200", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length, value.as_array().map_or(0, |arr| arr.len()));
+            log_request(
+                &date_time,
+                "200",
+                "GET",
+                &requested_path,
+                false,
+                elapsed,
+                state.max_request_path_len,
+                state.max_request_path_id_length,
+                value.as_array().map_or(0, |arr| arr.len()),
+            );
             (StatusCode::OK, axum::Json(value)).into_response()
         }
         None => {
             let elapsed = start_time.elapsed().as_millis();
-            log_request(&date_time, "404", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length,0);
-            (StatusCode::NOT_FOUND, "Route not registered 1 !!").into_response()
-        },
-    }
-}
-
-async fn get_data_by_id(
-    Path((route, id)): Path<(String, String)>, 
-    State(state): State<Arc<AppState>>, 
-    uri: Uri
-) -> Response {
-    sleep(Duration::from_millis(state.latency)).await;
-
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-
-    let json_data = match timeout(Duration::from_millis(100), state.json_value.read()).await {
-        Ok(lock) => lock,
-        Err(_) => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 500 ".bold().white().on_green(),
-                date_time.italic().dimmed(),
-                " GET    ".bright_white().on_green(),
-                requested_path.italic()
+            log_request(
+                &date_time,
+                "404",
+                "GET",
+                &requested_path,
+                false,
+                elapsed,
+                state.max_request_path_len,
+                state.max_request_path_id_length,
+                0,
             );
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Server is busy, try again later."
-            ).into_response();
-        },
-    };
-
-    match json_data.get(&route) {
-        Some(Value::Array(arr)) => {
-            let _id = match id.parse::<i64>() {
-                Ok(val) => val,
-                Err(_) => return (StatusCode::BAD_REQUEST, "Invalid ID format").into_response(),
-            };
-            let record = arr.par_iter().find_any(|item| {
-                item.get("id").and_then(Value::as_i64) == Some(_id)
-            });
-
-            match record {
-                Some(record) => {
-                    println!(
-                        "|{}| {} |{}| {}",
-                        " 200 ".bold().white().on_blue(),
-                        date_time.italic().dimmed(),
-                        " GET    ".bright_white().on_green(),
-                        requested_path.italic()
-                    );
-                    return (StatusCode::OK, axum::Json(record)).into_response();
-                },
-                None => {
-                    println!(
-                        "|{}| {} |{}| {}",
-                        " 404 ".bold().white().on_red(),
-                        date_time.italic().dimmed(),
-                        " GET    ".bright_white().on_green(),
-                        requested_path.italic()
-                    );
-                    return (StatusCode::NOT_FOUND, "Record not found, check `id`").into_response();
-                },
-            }
+            (StatusCode::NOT_FOUND, "Route not registered !!").into_response()
         }
-        Some(_) => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 400 ".bold().white().on_yellow(),
-                date_time.italic().dimmed(),
-                " GET    ".bright_white().on_green(),
-                requested_path.italic()
-            );
-            return (StatusCode::BAD_REQUEST, "Route exists but is not an array.").into_response();
-        },
-        None => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 404 ".bold().white().on_red(),
-                date_time.to_string().italic().dimmed(),
-                " GET    ".bright_white().on_green(),
-                requested_path.italic()
-            );
-            return (StatusCode::NOT_FOUND, "Route not registered 2 !!").into_response();
-        },
     }
 }
 
 async fn delete_data(
-    Path(route): Path<String>, 
-    State(state): State<Arc<AppState>>, 
-    uri: Uri
+    Path(route): Path<String>,
+    State(state): State<Arc<AppState>>,
+    uri: Uri,
 ) -> Response {
-
     sleep(Duration::from_millis(state.latency)).await;
 
     let now = Local::now();
@@ -194,7 +183,7 @@ async fn delete_data(
     let requested_path = uri.path();
 
     let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
-        Ok(lock) => lock, 
+        Ok(lock) => lock,
         Err(_) => {
             println!(
                 "|{}| {} |{}| {}",
@@ -205,9 +194,10 @@ async fn delete_data(
             );
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "Server is busy, try again later."
-            ).into_response();
-        },
+                "Server is busy, try again later.",
+            )
+                .into_response();
+        }
     };
 
     match json_data.get_mut(&route) {
@@ -231,7 +221,7 @@ async fn delete_data(
                 requested_path.italic()
             );
             return (StatusCode::BAD_REQUEST, "Route exists but is not an array.").into_response();
-        },
+        }
         None => {
             println!(
                 "|{}| {} |{}| {}",
@@ -241,109 +231,7 @@ async fn delete_data(
                 requested_path.italic()
             );
             return (StatusCode::NOT_FOUND, "Route not registered 3 !!").into_response();
-        },
-    }
-}
-
-async fn delete_data_by_id(
-    Path((route, id)): Path<(String, String)>, 
-    State(state): State<Arc<AppState>>, 
-    uri: Uri
-) -> Response {
-    sleep(Duration::from_millis(state.latency)).await;
-
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-    
-    // Use write lock for exclusive access during modification
-    let mut json_data = match timeout(Duration::from_millis(100), state.json_value.write()).await {
-        Ok(lock) => lock, 
-        Err(_) => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 500 ".bold().white().on_green(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Server is busy, try again later."
-            ).into_response();
-        },
-    };
-
-    let _id = match id.parse::<i64>() {
-        Ok(value) => value,
-        Err(_) => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 400 ".bold().white().on_yellow(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (StatusCode::BAD_REQUEST, "Invalid ID format").into_response();
-        },
-    };
-
-    match json_data.get_mut(&route) {
-        Some(Value::Array(arr)) => {
-            let initial_len = arr.len();
-            
-            // Use parallel processing only for large arrays
-            if arr.len() > 100 {
-                use rayon::prelude::*;
-                let filtered: Vec<Value> = arr.par_iter()
-                    .filter(|item| item.get("id").and_then(Value::as_i64) != Some(_id))
-                    .cloned()
-                    .collect();
-                *arr = filtered;
-            } else {
-                arr.retain(|item| item.get("id").and_then(Value::as_i64) != Some(_id));
-            }
-
-            if arr.len() < initial_len {
-                println!(
-                    "|{}| {} |{}| {}",
-                    " 200 ".bold().white().on_blue(),
-                    date_time.italic().dimmed(),
-                    " DELETE ".bright_white().on_red(),
-                    requested_path.italic()
-                );
-                return (StatusCode::OK, "Record deleted successfully").into_response();
-            } else {
-                println!(
-                    "|{}| {} |{}| {}",
-                    " 404 ".bold().white().on_red(),
-                    date_time.italic().dimmed(),
-                    " DELETE ".bright_white().on_red(),
-                    requested_path.italic()
-                );
-                return (StatusCode::NOT_FOUND, "ID not found in array").into_response();
-            }
         }
-        Some(_) => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 400 ".bold().white().on_yellow(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (StatusCode::BAD_REQUEST, "Route exists but is not an array.").into_response();
-        },
-        None => {
-            println!(
-                "|{}| {} |{}| {}",
-                " 404 ".bold().white().on_red(),
-                date_time.italic().dimmed(),
-                " DELETE ".bright_white().on_red(),
-                requested_path.italic()
-            );
-            return (StatusCode::NOT_FOUND, "Route not registered 4 !!").into_response();
-        },
     }
 }
 
@@ -363,10 +251,6 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     // Build router with Axum
     let app = Router::new()
         .route("/", get(ping_pong))
-        // Routes with ID (no catch-all)
-        // .route("/:route/:id", get(get_data_by_id))
-        // .route("/:route/:id", delete(delete_data_by_id))
-        // Catch-all routes (must come last)
         .route("/*route", get(get_data))
         .route("/*route", delete(delete_data))
         .with_state(state.clone());
@@ -379,14 +263,13 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
     println!(" - Local:     http://{}:{}", local, config.port);
     println!(" - Network:   http://{}:{}\n", lan_ip, config.port);
-    
+
     // Setup graceful shutdown
-    let server = Server::bind(&addr)
-        .serve(app.into_make_service());
-    
+    let server = Server::bind(&addr).serve(app.into_make_service());
+
     // Create a future that completes when a shutdown signal is received
     let graceful = server.with_graceful_shutdown(shutdown_signal());
-    
+
     // Wait for the server to complete (or for a shutdown signal)
     if let Err(e) = graceful.await {
         eprintln!("Server error: {}", e);
@@ -451,18 +334,39 @@ fn initialize_cmd() -> Result<Config, IOError> {
             .help("The protocol to use for the Mock API"))
         .get_matches();
 
-    let json_file_path = matches.get_one::<String>("path").expect("Missing path argument").to_string();
-    let api_protocol = matches.get_one::<String>("protocol").expect("Invalid protocol").to_string();
-    let server_port = matches.get_one::<String>("port").unwrap().parse::<u16>().expect("Invalid port number");
-    let sim_latency_str = matches.get_one::<String>("latency").expect("Missing latency argument").to_string();
-    let sim_latency: u64 = sim_latency_str.trim_end_matches("ms").parse::<u64>().expect("Invalid latency format");
-    let pagination_factor = matches.get_one::<String>("page").unwrap().parse::<u64>().expect("Invalid page format");
+    let json_file_path = matches
+        .get_one::<String>("path")
+        .expect("Missing path argument")
+        .to_string();
+    let api_protocol = matches
+        .get_one::<String>("protocol")
+        .expect("Invalid protocol")
+        .to_string();
+    let server_port = matches
+        .get_one::<String>("port")
+        .unwrap()
+        .parse::<u16>()
+        .expect("Invalid port number");
+    let sim_latency_str = matches
+        .get_one::<String>("latency")
+        .expect("Missing latency argument")
+        .to_string();
+    let sim_latency: u64 = sim_latency_str
+        .trim_end_matches("ms")
+        .parse::<u64>()
+        .expect("Invalid latency format");
+    let pagination_factor = matches
+        .get_one::<String>("page")
+        .unwrap()
+        .parse::<u64>()
+        .expect("Invalid page format");
     let auto_generate_enabled = matches.get_flag("auto_generate_data");
 
     let json_content = fs::read_to_string(&json_file_path).expect("Failed to read Json File");
 
     let parsed_content: Value = if auto_generate_enabled {
-        let schema: JsonDataGeneratorSchema = serde_json::from_str(&json_content).expect("Invalid schema format for auto data generation");
+        let schema: JsonDataGeneratorSchema = serde_json::from_str(&json_content)
+            .expect("Invalid schema format for auto data generation");
         let result = generate_json_from_schema(schema);
         result
     } else {
@@ -477,7 +381,7 @@ fn initialize_cmd() -> Result<Config, IOError> {
                 process::exit(1);
             }
         }
-        
+
         if !content.is_object() {
             eprintln!("Error: The given json file is a JSON Array! It should be a JSON Object");
             process::exit(1);
@@ -502,7 +406,7 @@ fn initialize_cmd() -> Result<Config, IOError> {
             }
         }
     }
-    
+
     let final_port: u16 = find_available_port(server_port);
 
     Ok(Config {
@@ -520,12 +424,15 @@ fn initialize_cmd() -> Result<Config, IOError> {
 
 #[tokio::main]
 async fn main() -> Result<(), IOError> {
-    println!("
+    println!(
+        "
 ╔═╗┬ ┬┬┌┬┐┌─┐┬─┐┌─┐
 ║  ├─┤││││├┤ ├┬┘├─┤
 ╚═╝┴ ┴┴┴ ┴└─┘┴└─┴ ┴
 v{}
-    ", CHIMERA_LATEST_VERSION);
+    ",
+        CHIMERA_LATEST_VERSION
+    );
 
     let config_data = initialize_cmd()?;
 
@@ -534,20 +441,22 @@ v{}
             if let Err(e) = run_axum_server(config_data).await {
                 eprintln!("Failed to run Axum server: {}", e);
             }
-        },
+        }
         "grpc" => {
             if let Err(e) = run_grpc_server(config_data).await {
                 eprintln!("Failed to run Tonic server: {}", e);
             }
-        },
+        }
         _ => {
             println!("PROTOCOL NOT SUPPORTED !!");
         }
     }
 
-    println!("
+    println!(
+        "
 Chimera retreats to the shadows... 
 It will rise again. 🐉
-    ");
+    "
+    );
     Ok(())
 }
