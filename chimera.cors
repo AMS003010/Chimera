@@ -1,0 +1,5 @@
+http://localhost:3000
+https://example.com
+https://api.example.com
+https://*.example.org
+http://127.0.0.1:8080
