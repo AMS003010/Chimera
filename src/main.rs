@@ -15,6 +15,7 @@ use axum::{
 };
 use chrono::Local;
 use clap::{Arg, Command};
+use colored::Colorize;
 use hyper::server::Server;
 use local_ip_address::local_ip;
 use serde_json::Value;
@@ -668,7 +669,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
             .collect::<Vec<_>>();
 
         if config.allowed_origins.is_empty() {
-            println!("[INFO] Cors: * \n");
+            println!("[{}] CORS: * \n", "INFO".green());
             CorsLayer::new()
                 .allow_methods([
                     Method::GET,
@@ -682,7 +683,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
                 .allow_origin(Any)
                 .allow_credentials(false)
         } else {
-            println!("[INFO] Cors: chimera.cors\n");
+            println!("[{}] CORS: chimera.cors\n", "INFO".green());
             CorsLayer::new()
                 .allow_methods([
                     Method::GET,
@@ -697,7 +698,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
                 .allow_credentials(false)
         }
     } else {
-        println!("[INFO] Cors: * \n");
+        println!("[{}] CORS: * \n", "INFO".green());
         CorsLayer::new()
             .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE])
             .allow_headers(Any)
@@ -838,7 +839,7 @@ fn initialize_cmd() -> Result<Config, IOError> {
                 .filter(|s| !s.is_empty())
                 .collect();
         } else {
-            eprintln!("Warning: CORS enabled but chimera.cors file not found. Allowing all origins.");
+            eprintln!("[{}] CORS enabled but chimera.cors file not found. Allowing all origins.", "WARN".yellow());
         }
     }
 
