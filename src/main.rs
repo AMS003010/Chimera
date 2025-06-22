@@ -58,7 +58,7 @@ async fn get_data(
             Ok(lock) => lock.get(&route).cloned(),
             Err(_) => {
                 let elapsed = start_time.elapsed().as_millis();
-                log_request(&date_time, "500", "GET", &requested_path, true, elapsed, state.max_request_path_len, state.max_request_path_id_length);
+                log_request(&date_time, "500", "GET", &requested_path, true, elapsed, state.max_request_path_len, state.max_request_path_id_length, 0);
                 return server_busy_response();
             },
         };
@@ -86,12 +86,12 @@ async fn get_data(
             }
 
             let elapsed = start_time.elapsed().as_millis();
-            log_request(&date_time, "200", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length);
+            log_request(&date_time, "200", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length, value.as_array().map_or(0, |arr| arr.len()));
             (StatusCode::OK, axum::Json(value)).into_response()
         }
         None => {
             let elapsed = start_time.elapsed().as_millis();
-            log_request(&date_time, "404", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length);
+            log_request(&date_time, "404", "GET", &requested_path, false, elapsed, state.max_request_path_len, state.max_request_path_id_length,0);
             (StatusCode::NOT_FOUND, "Route not registered 1 !!").into_response()
         },
     }
@@ -377,8 +377,8 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     // Display server info
     let local = "127.0.0.1";
     let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
-    println!(" - Local:               http://{}:{}", local, config.port);
-    println!(" - Network:             http://{}:{}\n", lan_ip, config.port);
+    println!(" - Local:     http://{}:{}", local, config.port);
+    println!(" - Network:   http://{}:{}\n", lan_ip, config.port);
     
     // Setup graceful shutdown
     let server = Server::bind(&addr)

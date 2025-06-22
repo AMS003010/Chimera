@@ -1,10 +1,10 @@
-use serde_json::Value;
 use axum::{
+    http::StatusCode,
     response::{IntoResponse, Response},
-    http::StatusCode
 };
-use rayon::prelude::*;
 use colored::*;
+use rayon::prelude::*;
+use serde_json::Value;
 
 pub async fn shutdown_signal() {
     // Create a future that resolves when Ctrl+C is pressed
@@ -17,8 +17,8 @@ pub async fn shutdown_signal() {
     // On Windows, we need to handle ctrl_break differently
     #[cfg(windows)]
     let terminate = async {
-        let mut ctrl_break = tokio::signal::windows::ctrl_break()
-            .expect("Failed to install Ctrl+Break handler");
+        let mut ctrl_break =
+            tokio::signal::windows::ctrl_break().expect("Failed to install Ctrl+Break handler");
         ctrl_break.recv().await;
         println!("\nReceived Ctrl+Break signal, starting graceful shutdown...");
     };
@@ -51,7 +51,17 @@ pub fn compare_values(a: &Value, b: &Value, key: &str, order: &str) -> std::cmp:
 }
 
 // Helper function for logging
-pub fn log_request(date_time: &str, status: &str, method: &str, path: &str, _is_error: bool, elapsed: u128, key_len: usize, id_len: usize) {
+pub fn log_request(
+    date_time: &str,
+    status: &str,
+    method: &str,
+    path: &str,
+    _is_error: bool,
+    elapsed: u128,
+    key_len: usize,
+    id_len: usize,
+    obj: usize,
+) {
     let status_display = match status {
         "200" => " 200 ".bold().white().on_blue(),
         "404" => " 404 ".bold().white().on_red(),
@@ -67,14 +77,16 @@ pub fn log_request(date_time: &str, status: &str, method: &str, path: &str, _is_
     let spaces = " ".repeat(space_padding);
 
     println!(
-        "|{}| {} |{}| {}{}  | {}{}",
+        "|{}| {} |{}| {}{}  | {}{}, {} {}",
         status_display,
         date_time.italic().dimmed(),
         method_display,
         path.italic(),
         spaces,
         elapsed.to_string().italic().dimmed(),
-        "ms".italic().dimmed()
+        "ms".italic().dimmed(),
+        obj.to_string().italic().dimmed(),
+        "entries".italic().dimmed(),
     );
 }
 
@@ -82,8 +94,9 @@ pub fn log_request(date_time: &str, status: &str, method: &str, path: &str, _is_
 pub fn server_busy_response() -> Response {
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        "Server is busy, try again later."
-    ).into_response()
+        "Server is busy, try again later.",
+    )
+        .into_response()
 }
 
 pub fn find_key_and_id_lengths(parsed_content: &Value) -> Option<(usize, usize)> {
@@ -97,7 +110,10 @@ pub fn find_key_and_id_lengths(parsed_content: &Value) -> Option<(usize, usize)>
             let arr = value.as_array()?;
 
             // All items must be objects with numeric "id"
-            if arr.iter().all(|v| v.get("id").and_then(Value::as_i64).is_some()) {
+            if arr
+                .iter()
+                .all(|v| v.get("id").and_then(Value::as_i64).is_some())
+            {
                 let max_id_len = arr
                     .par_iter()
                     .filter_map(|v| v.get("id")?.as_i64())

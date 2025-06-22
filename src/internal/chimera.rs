@@ -1,8 +1,8 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
-use serde_json::Value;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
