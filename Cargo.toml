@@ -34,6 +34,6 @@ depends = "$auto"
 section = "utils"
 priority = "optional"
 assets = [
-    ["target/x86_64-unknown-linux-gnu/release/chimera", "usr/bin/", "755"],
+    ["target/release/chimera", "usr/bin/", "755"],
     ["README.md", "usr/share/doc/chimera/README", "644"],
 ]
