@@ -41,13 +41,13 @@ jobs:
         
         # Determine extension based on OS
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          EXT=".exe"
+          SOURCE_EXT=".exe"
         else
-          EXT=""
+          SOURCE_EXT=""
         fi
         
-        # Copy the actual binary (named after package name in Cargo.toml)
-        cp target/${{ matrix.target }}/release/chimera$EXT dist/${{ matrix.file }}
+        # Copy the actual binary (always named 'chimera' from Cargo.toml)
+        cp target/${{ matrix.target }}/release/chimera$SOURCE_EXT dist/${{ matrix.file }}
         
         # Zip it
         cd dist
