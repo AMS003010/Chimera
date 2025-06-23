@@ -51,8 +51,16 @@ jobs:
         
         # Copy the actual binary (always named 'chimera' from Cargo.toml)
         cp target/${{ matrix.target }}/release/chimera$SOURCE_EXT dist/${{ matrix.file }}
-        
-        # Zip it
+      shell: bash
+
+    - name: Create zip (Windows)
+      if: matrix.os == 'windows-latest'
+      run: Compress-Archive -Path dist/${{ matrix.file }} -DestinationPath dist/${{ matrix.file }}.zip
+      shell: powershell
+
+    - name: Create zip (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
         cd dist
         zip ${{ matrix.file }}.zip ${{ matrix.file }}
       shell: bash
