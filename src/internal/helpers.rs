@@ -63,27 +63,27 @@ pub fn log_request(
     obj: usize,
 ) {
     let status_display = match status {
-        "200" => " 200 ".bold().white().on_blue(),
-        "404" => " 404 ".bold().white().on_red(),
-        "422" => " 422 ".bold().white().on_red(),
-        "500" => " 500 ".bold().white().on_green(),
-        _ => " ??? ".bold().white().on_yellow(),
+        "200" => "[200]".bold().blue(),
+        "404" => "[404]".bold().red(),
+        "422" => "[422]".bold().red(),
+        "500" => "[500]".bold().green(),
+        _ => "[???]".bold().yellow(),
     };
 
     let method_display = match method {
-        "GET" => " GET    ".bright_white().on_green(),
-        "DELETE" => " DELETE ".bright_white().on_red(),
-        "PUT" => " PUT    ".bright_white().on_green(),
-        "PATCH" => " PATCH  ".bright_white().on_green(),
-        "POST" => " POST   ".bright_white().on_green(),
-        _ => method.to_string().bright_white().on_green(),
+        "GET" => "[GET   ]".bright_green(),
+        "DELETE" => "[DELETE]".bright_red(),
+        "PUT" => "[PUT   ]".bright_green(),
+        "PATCH" => "[PATCH ]".bright_green(),
+        "POST" => "[POST  ]".bright_green(),
+        _ => method.to_string().bright_green(),
     };
     let space_padding = key_len + id_len + 2 - path.len();
     let spaces = " ".repeat(space_padding);
 
     if _is_error != "false" {
         println!(
-            "|{}| {} |{}| {}{}  | {}{}, {}",
+            "{} {} {} {}{}  | {}{}, {}",
             status_display,
             date_time.italic().dimmed(),
             method_display,
@@ -95,7 +95,7 @@ pub fn log_request(
         );
     } else {
         println!(
-            "|{}| {} |{}| {}{}  | {}{}, {} {}",
+            "{} {} {} {}{}  | {}{}, {} {}",
             status_display,
             date_time.italic().dimmed(),
             method_display,
