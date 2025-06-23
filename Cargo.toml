@@ -2,6 +2,11 @@
 name = "chimera"
 version = "0.6.0"
 edition = "2021"
+description = "A Mock API for every need and more"
+authors = ["Abhijith MS <abhijithmsaji132@gmail.com>"]
+license = "MIT"
+homepage = "https://github.com/ams003010/chimera"
+repository = "https://github.com/ams003010/chimera"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -19,3 +24,16 @@ thiserror = "2.0.12"
 fake = "4.3.0"
 rand = "0.9.0"
 local-ip-address = "0.5"
+
+[package.metadata.deb]
+maintainer = "Abhijith M S <abhijithmsaji132@gmail.com>"
+copyright = "2024, Abhijith M S <abhijithmsaji132@gmail.com>"
+license-file = ["LICENSE", "4"]
+changelog = "CHANGELOG.md"
+depends = "$auto"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/x86_64-unknown-linux-gnu/release/chimera", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/chimera/README", "644"],
+]

@@ -1,0 +1,62 @@
+name: Build Debian Package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    name: Build Debian Package
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        target: x86_64-unknown-linux-gnu
+
+    - name: Build release binary
+      run: cargo build --release --target x86_64-unknown-linux-gnu
+
+    - name: Install cargo-deb
+      run: cargo install cargo-deb
+
+    - name: Create Debian package
+      run: cargo deb --target x86_64-unknown-linux-gnu
+
+    - name: Find and rename .deb file
+      run: |
+        # Find the generated .deb file
+        DEB_FILE=$(find target/x86_64-unknown-linux-gnu/debian -name "*.deb" | head -1)
+        echo "Found .deb file: $DEB_FILE"
+        
+        # Extract version from tag (remove 'v' prefix if present)
+        VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+        NEW_NAME="chimera_${VERSION}_amd64.deb"
+        
+        # Copy to a standard location with friendly name
+        mkdir -p dist
+        cp "$DEB_FILE" "dist/$NEW_NAME"
+        
+        echo "DEB_FILE_PATH=dist/$NEW_NAME" >> $GITHUB_ENV
+        echo "DEB_FILE_NAME=$NEW_NAME" >> $GITHUB_ENV
+        
+        # Show file info
+        ls -la "dist/$NEW_NAME"
+        echo "Created Debian package: $NEW_NAME"
+
+    - name: Upload Debian package to GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ${{ env.DEB_FILE_PATH }}
+        fail_on_unmatched_files: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
