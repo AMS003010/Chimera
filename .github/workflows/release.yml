@@ -38,17 +38,17 @@ jobs:
     - name: Rename and zip binary
       run: |
         mkdir dist
-
-        # Determine base binary name and extension
-        BINARY=chimera
-        EXT=""
+        
+        # Determine extension based on OS
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
           EXT=".exe"
+        else
+          EXT=""
         fi
-
-        # Copy and rename binary
-        cp target/${{ matrix.target }}/release/$BINARY$EXT dist/${{ matrix.file }}
-
+        
+        # Copy the actual binary (named after package name in Cargo.toml)
+        cp target/${{ matrix.target }}/release/chimera$EXT dist/${{ matrix.file }}
+        
         # Zip it
         cd dist
         zip ${{ matrix.file }}.zip ${{ matrix.file }}
