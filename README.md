@@ -44,33 +44,64 @@ Now with **automatic data generation**, **null value simulation**, **long path s
 ## 🐲 Installation
 
 ### On Windows
-
-On Powershell (Run as Administrator)
-
+Download and run directly:
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/download/v0.6.0/chimera-windows.exe" -OutFile "chimera.exe"
+# Download the latest release
+Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/latest/download/chimera-windows.exe.zip" -OutFile "chimera-windows.zip"
+
+# Extract the zip file
+Expand-Archive -Path "chimera-windows.zip" -DestinationPath "."
+
+# Run chimera
+.\chimera-windows.exe --path data.json
 ```
 
-On Powershell (non-privileged)
+### On Linux
 
-```powershell
-.\chimera.exe --path data.json
-```
-
-### On Linux and Mac
-
+#### Using the precompiled binary:
 ```bash
-curl -sL $(curl -s https://api.github.com/repos/AMS003010/chimera/releases/latest | jq -r '.assets[] | select(.name | test("chimera.*")) | .browser_download_url') -o chimera
-chmod +x chimera
-./chimera --path data.json
+# Download and extract the latest Linux binary
+curl -sL https://github.com/AMS003010/Chimera/releases/latest/download/chimera-linux.zip -o chimera-linux.zip
+unzip chimera-linux.zip
+chmod +x chimera-linux
+./chimera-linux --path data.json
+```
+
+#### Using the Debian package (Ubuntu/Debian):
+```bash
+# Download the latest .deb package
+wget https://github.com/AMS003010/Chimera/releases/latest/download/chimera_$(curl -s https://api.github.com/repos/AMS003010/Chimera/releases/latest | jq -r '.tag_name' | sed 's/^v//')_amd64.deb
+
+# Install the package
+sudo dpkg -i chimera_*_amd64.deb
+
+# Run chimera (now available system-wide)
+chimera --path data.json
+```
+
+### On macOS
+```bash
+# Download and extract the latest macOS binary
+curl -sL https://github.com/AMS003010/Chimera/releases/latest/download/chimera-macos.zip -o chimera-macos.zip
+unzip chimera-macos.zip
+chmod +x chimera-macos
+./chimera-macos --path data.json
 ```
 
 ### Build from Source
-
 ```bash
 git clone https://github.com/AMS003010/Chimera.git
 cd Chimera
 cargo install --path .
+chimera --path data.json
+```
+
+### Quick Download Script (Linux/macOS)
+```bash
+# One-liner to download and set up the latest release for your platform
+curl -s https://api.github.com/repos/AMS003010/Chimera/releases/latest | \
+jq -r ".assets[] | select(.name | test(\"$(uname -s | tr '[:upper:]' '[:lower:]')\")) | .browser_download_url" | \
+xargs curl -sL -o chimera.zip && unzip chimera.zip && chmod +x chimera-* && echo "Download complete!"
 ```
 
 ## 🐲 Usage
