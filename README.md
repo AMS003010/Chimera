@@ -52,6 +52,9 @@ Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/latest/dow
 # Extract the zip file
 Expand-Archive -Path "chimera-windows.zip" -DestinationPath "."
 
+# Rename the binary
+Rename-Item chimera-windows.exe chimera.exe
+
 # Run chimera
 .\chimera-windows.exe --path data.json
 ```
