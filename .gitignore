@@ -12,3 +12,6 @@ schema.json
 package.json
 package-lock.json
 tailwind.config.js
+
+# Diagrams
+api-playground.excalidraw
