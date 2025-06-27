@@ -43,6 +43,11 @@ Now with **automatic data generation**, **null value simulation**, **long path s
 
 ## 🐲 Installation
 
+### Install with Cargo
+```
+cargo install chimera-cli
+```
+
 ### On Windows
 Download and run directly:
 ```powershell
@@ -74,7 +79,7 @@ mv chimera-linux chimera-cli
 #### Using the Debian package (Ubuntu/Debian):
 ```bash
 # Download the latest .deb package
-wget https://github.com/AMS003010/Chimera/releases/latest/download/chimera_$(curl -s https://api.github.com/repos/AMS003010/Chimera/releases/latest | jq -r '.tag_name' | sed 's/^v//')_amd64.deb
+curl -s https://api.github.com/repos/AMS003010/Chimera/releases/latest | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url' | xargs wget
 
 # Install the package
 sudo dpkg -i chimera-cli_*_amd64.deb
@@ -89,7 +94,8 @@ chimera-cli --path data.json
 curl -sL https://github.com/AMS003010/Chimera/releases/latest/download/chimera-macos.zip -o chimera-macos.zip
 unzip chimera-macos.zip
 chmod +x chimera-macos
-./chimera-macos --path data.json
+mv chimera-macos chimera-cli
+./chimera-cli --path data.json
 ```
 
 ### Build from Source
