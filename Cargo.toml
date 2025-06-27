@@ -1,6 +1,6 @@
 [package]
 name = "chimera-cli"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 description = "A Mock API for every need and more"
 authors = ["Abhijith MS <abhijithmsaji132@gmail.com>"]
