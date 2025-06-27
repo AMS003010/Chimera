@@ -1,5 +1,5 @@
 [package]
-name = "chimera"
+name = "chimera-cli"
 version = "0.6.0"
 edition = "2021"
 description = "A Mock API for every need and more"
