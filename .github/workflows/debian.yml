@@ -40,7 +40,7 @@ jobs:
         
         # Extract version from tag (remove 'v' prefix if present)
         VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-        NEW_NAME="chimera_${VERSION}_amd64.deb"
+        NEW_NAME="chimera-cli_${VERSION}_amd64.deb"
         
         # Copy to a standard location with friendly name
         mkdir -p dist

@@ -49,8 +49,8 @@ jobs:
           SOURCE_EXT=""
         fi
         
-        # Copy the actual binary (always named 'chimera' from Cargo.toml)
-        cp target/${{ matrix.target }}/release/chimera$SOURCE_EXT dist/${{ matrix.file }}
+        # Copy the actual binary (always named 'chimera-cli' from Cargo.toml)
+        cp target/${{ matrix.target }}/release/chimera-cli$SOURCE_EXT dist/${{ matrix.file }}
       shell: bash
 
     - name: Create zip (Windows)

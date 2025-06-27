@@ -53,10 +53,10 @@ Invoke-WebRequest -Uri "https://github.com/AMS003010/Chimera/releases/latest/dow
 Expand-Archive -Path "chimera-windows.zip" -DestinationPath "."
 
 # Rename the binary
-Rename-Item chimera-windows.exe chimera.exe
+Rename-Item chimera-windows.exe chimera-cli.exe
 
 # Run chimera
-.\chimera-windows.exe --path data.json
+.\chimera-cli.exe --path data.json
 ```
 
 ### On Linux
@@ -67,6 +67,7 @@ Rename-Item chimera-windows.exe chimera.exe
 curl -sL https://github.com/AMS003010/Chimera/releases/latest/download/chimera-linux.zip -o chimera-linux.zip
 unzip chimera-linux.zip
 chmod +x chimera-linux
+mv chimera-linux chimera-cli
 ./chimera-linux --path data.json
 ```
 
@@ -76,10 +77,10 @@ chmod +x chimera-linux
 wget https://github.com/AMS003010/Chimera/releases/latest/download/chimera_$(curl -s https://api.github.com/repos/AMS003010/Chimera/releases/latest | jq -r '.tag_name' | sed 's/^v//')_amd64.deb
 
 # Install the package
-sudo dpkg -i chimera_*_amd64.deb
+sudo dpkg -i chimera-cli_*_amd64.deb
 
 # Run chimera (now available system-wide)
-chimera --path data.json
+chimera-cli --path data.json
 ```
 
 ### On macOS
@@ -96,7 +97,7 @@ chmod +x chimera-macos
 git clone https://github.com/AMS003010/Chimera.git
 cd Chimera
 cargo install --path .
-chimera --path data.json
+chimera-cli --path data.json
 ```
 
 ### Quick Download Script (Linux/macOS)
@@ -113,19 +114,19 @@ xargs curl -sL -o chimera.zip && unzip chimera.zip && chmod +x chimera-* && echo
 
 Here's all the available CLI commands
 
-`chimera.exe --path .\data.json`: Start the Chimera server with data from `data.json` at default port `8080`
+`chimera-cli.exe --path .\data.json`: Start the Chimera server with data from `data.json` at default port `8080`
 
-`chimera.exe --path .\data.json --port 4000`: Start the Chimera server at port `4000`
+`chimera-cli.exe --path .\data.json --port 4000`: Start the Chimera server at port `4000`
 
-`chimera.exe --path .\data.json --sort products desc id`: Sort records in `/products` route by `id` in `desc` order
+`chimera-cli.exe --path .\data.json --sort products desc id`: Sort records in `/products` route by `id` in `desc` order
 
-`chimera.exe --path .\data.json --page 3`: Start server with the records paginated with a factor `3`
+`chimera-cli.exe --path .\data.json --page 3`: Start server with the records paginated with a factor `3`
 
-`chimera.exe --path .\data.json --latency 100`: Simulate latency of `100 ms`
+`chimera-cli.exe --path .\data.json --latency 100`: Simulate latency of `100 ms`
 
-`chimera.exe --path .\schema.json -X`: Enable automatic data generation using schema from `schema.json`
+`chimera-cli.exe --path .\schema.json -X`: Enable automatic data generation using schema from `schema.json`
 
-`chimera.exe --path .\data.json --cors`: Enable CORS and allow only domains from `chimera.cors` file
+`chimera-cli.exe --path .\data.json --cors`: Enable CORS and allow only domains from `chimera.cors` file
 
 > \[!NOTE]
 > Use multiple arguments together for more diverse control
