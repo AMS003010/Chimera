@@ -7,6 +7,10 @@ authors = ["Abhijith MS <abhijithmsaji132@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/ams003010/chimera"
 repository = "https://github.com/ams003010/chimera"
+readme = "README.md"
+keywords = ["mock", "api", "server", "json", "cli"]
+categories = ["command-line-utilities", "web-programming"]
+documentation = "https://docs.rs/chimera"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
