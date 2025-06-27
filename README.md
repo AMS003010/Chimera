@@ -3,6 +3,7 @@
 # Chimera - The Only Mock API you will ever need ⚡
 
 <!-- [![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ams003010/chimera)](https://rust-reportcard.xuri.me/report/github.com/ams003010/chimera) -->
+[![Crates.io](https://img.shields.io/crates/v/chimera-cli)](https://crates.io/crates/chimera-cli)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Version](https://img.shields.io/badge/version-0.6.1-blue.svg)
 
