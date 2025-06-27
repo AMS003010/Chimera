@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["mock", "api", "server", "json", "cli"]
 categories = ["command-line-utilities", "web-programming"]
 documentation = "https://docs.rs/chimera"
+exclude = ["target/*", "chimera.cors", "assets/*", "docs/*"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
