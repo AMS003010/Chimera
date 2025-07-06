@@ -1,6 +1,6 @@
 [package]
 name = "chimera-cli"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 description = "A Mock API for every need and more"
 authors = ["Abhijith MS <abhijithmsaji132@gmail.com>"]
@@ -10,7 +10,7 @@ repository = "https://github.com/ams003010/chimera"
 readme = "README.md"
 keywords = ["mock", "api", "server", "json", "cli"]
 categories = ["command-line-utilities", "web-programming"]
-documentation = "https://docs.rs/chimera"
+documentation = "https://chimera-docs.vercel.app"
 exclude = [
     "target/*",
     "chimera.cors",
