@@ -17,6 +17,7 @@ pub struct Config {
     pub max_request_path_id_length: usize,
     pub max_request_path_len: usize,
     pub cors_enabled: bool,
+    pub logs_disabled: bool,
     pub allowed_origins: Vec<String>,
 }
 
@@ -27,6 +28,7 @@ pub struct AppState {
     pub paginate: u64,
     pub max_request_path_id_length: usize,
     pub max_request_path_len: usize,
+    pub logs_disabled: bool,
 }
 
 pub const CHIMERA_LATEST_VERSION: &str = "0.6.2";

@@ -89,17 +89,19 @@ async fn get_data(
             }
             Err(_) => {
                 let elapsed = start_time.elapsed().as_millis();
-                log_request(
-                    &date_time,
-                    "500",
-                    "GET",
-                    &requested_path,
-                    "Server busy !!",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    0,
-                );
+                if !state.logs_disabled {
+                    log_request(
+                        &date_time,
+                        "500",
+                        "GET",
+                        &requested_path,
+                        "Server busy !!",
+                        elapsed,
+                        state.max_request_path_len,
+                        state.max_request_path_id_length,
+                        0,
+                    );
+                }
                 return server_busy_response();
             }
         };
@@ -118,17 +120,19 @@ async fn get_data(
                         });
                     }
                     let elapsed = start_time.elapsed().as_millis();
-                    log_request(
-                        &date_time,
-                        "200",
-                        "GET",
-                        &requested_path,
-                        "false",
-                        elapsed,
-                        state.max_request_path_len,
-                        state.max_request_path_id_length,
-                        value.as_array().map_or(0, |arr| arr.len()),
-                    );
+                    if !state.logs_disabled {
+                        log_request(
+                            &date_time,
+                            "200",
+                            "GET",
+                            &requested_path,
+                            "false",
+                            elapsed,
+                            state.max_request_path_len,
+                            state.max_request_path_id_length,
+                            value.as_array().map_or(0, |arr| arr.len()),
+                        );
+                    }
                     return (StatusCode::OK, axum::Json(value)).into_response();
                 }
             }
@@ -152,32 +156,36 @@ async fn get_data(
             }
 
             let elapsed = start_time.elapsed().as_millis();
-            log_request(
-                &date_time,
-                "200",
-                "GET",
-                &requested_path,
-                "false",
-                elapsed,
-                state.max_request_path_len,
-                state.max_request_path_id_length,
-                value.as_array().map_or(0, |arr| arr.len()),
-            );
+            if !state.logs_disabled {
+                log_request(
+                    &date_time,
+                    "200",
+                    "GET",
+                    &requested_path,
+                    "false",
+                    elapsed,
+                    state.max_request_path_len,
+                    state.max_request_path_id_length,
+                    value.as_array().map_or(0, |arr| arr.len()),
+                );
+            }
             (StatusCode::OK, axum::Json(value)).into_response()
         }
         None => {
             let elapsed = start_time.elapsed().as_millis();
-            log_request(
-                &date_time,
-                "404",
-                "GET",
-                &requested_path,
-                "Route not registered !!",
-                elapsed,
-                state.max_request_path_len,
-                state.max_request_path_id_length,
-                0,
-            );
+            if !state.logs_disabled {
+                log_request(
+                    &date_time,
+                    "404",
+                    "GET",
+                    &requested_path,
+                    "Route not registered !!",
+                    elapsed,
+                    state.max_request_path_len,
+                    state.max_request_path_id_length,
+                    0,
+                );
+            }
             (StatusCode::NOT_FOUND, "Route not registered !!").into_response()
         }
     }
@@ -205,17 +213,19 @@ async fn delete_data(
                 Ok(lock) => lock,
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
-                    log_request(
-                        &date_time,
-                        "500",
-                        "DELETE",
-                        &requested_path,
-                        "Server busy !!",
-                        elapsed,
-                        state.max_request_path_len,
-                        state.max_request_path_id_length,
-                        0,
-                    );
+                    if !state.logs_disabled {
+                        log_request(
+                            &date_time,
+                            "500",
+                            "DELETE",
+                            &requested_path,
+                            "Server busy !!",
+                            elapsed,
+                            state.max_request_path_len,
+                            state.max_request_path_id_length,
+                            0,
+                        );
+                    }
                     return server_busy_response();
                 }
             };
@@ -288,18 +298,19 @@ async fn delete_data(
     let elapsed = start_time.elapsed().as_millis();
     let (status_code, message, affected_records) = delete_result;
 
-    // Log the request
-    log_request(
-        &date_time,
-        status_code,
-        "DELETE",
-        &requested_path,
-        "false",
-        elapsed,
-        state.max_request_path_len,
-        state.max_request_path_id_length,
-        affected_records,
-    );
+    if !state.logs_disabled {
+        log_request(
+            &date_time,
+            status_code,
+            "DELETE",
+            &requested_path,
+            "false",
+            elapsed,
+            state.max_request_path_len,
+            state.max_request_path_id_length,
+            affected_records,
+        );
+    }
 
     // Return appropriate response
     match status_code {
@@ -333,17 +344,19 @@ async fn post_data(
                 Ok(lock) => lock,
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
-                    log_request(
-                        &date_time,
-                        "500",
-                        "POST",
-                        &requested_path,
-                        "Server busy !!",
-                        elapsed,
-                        state.max_request_path_len,
-                        state.max_request_path_id_length,
-                        0,
-                    );
+                    if !state.logs_disabled {
+                        log_request(
+                            &date_time,
+                            "500",
+                            "POST",
+                            &requested_path,
+                            "Server busy !!",
+                            elapsed,
+                            state.max_request_path_len,
+                            state.max_request_path_id_length,
+                            0,
+                        );
+                    }
                     return server_busy_response();
                 }
             };
@@ -393,17 +406,19 @@ async fn post_data(
     let elapsed = start_time.elapsed().as_millis();
     let (status_code, message, affected_records) = post_result;
 
-    log_request(
-        &date_time,
-        status_code,
-        "POST",
-        &requested_path,
-        "false",
-        elapsed,
-        state.max_request_path_len,
-        state.max_request_path_id_length,
-        affected_records,
-    );
+    if !state.logs_disabled {
+        log_request(
+            &date_time,
+            status_code,
+            "POST",
+            &requested_path,
+            "false",
+            elapsed,
+            state.max_request_path_len,
+            state.max_request_path_id_length,
+            affected_records,
+        );
+    }
 
     match status_code {
         "201" => (StatusCode::CREATED, message).into_response(),
@@ -436,17 +451,19 @@ async fn put_data(
                 Ok(lock) => lock,
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
-                    log_request(
-                        &date_time,
-                        "500",
-                        "PUT",
-                        &requested_path,
-                        "Server busy !!",
-                        elapsed,
-                        state.max_request_path_len,
-                        state.max_request_path_id_length,
-                        0,
-                    );
+                    if !state.logs_disabled {
+                        log_request(
+                            &date_time,
+                            "500",
+                            "PUT",
+                            &requested_path,
+                            "Server busy !!",
+                            elapsed,
+                            state.max_request_path_len,
+                            state.max_request_path_id_length,
+                            0,
+                        );
+                    }
                     return server_busy_response();
                 }
             };
@@ -552,17 +569,19 @@ async fn put_data(
     let elapsed = start_time.elapsed().as_millis();
     let (status_code, message, affected_records) = put_result;
 
-    log_request(
-        &date_time,
-        status_code,
-        "PUT",
-        &requested_path,
-        "false",
-        elapsed,
-        state.max_request_path_len,
-        state.max_request_path_id_length,
-        affected_records,
-    );
+    if !state.logs_disabled {
+        log_request(
+            &date_time,
+            status_code,
+            "PUT",
+            &requested_path,
+            "false",
+            elapsed,
+            state.max_request_path_len,
+            state.max_request_path_id_length,
+            affected_records,
+        );
+    }
 
     match status_code {
         "200" => (StatusCode::OK, message).into_response(),
@@ -597,17 +616,19 @@ async fn patch_data(
                 Ok(lock) => lock,
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
-                    log_request(
-                        &date_time,
-                        "500",
-                        "PATCH",
-                        &requested_path,
-                        "Server busy !!",
-                        elapsed,
-                        state.max_request_path_len,
-                        state.max_request_path_id_length,
-                        0,
-                    );
+                    if !state.logs_disabled {
+                        log_request(
+                            &date_time,
+                            "500",
+                            "PATCH",
+                            &requested_path,
+                            "Server busy !!",
+                            elapsed,
+                            state.max_request_path_len,
+                            state.max_request_path_id_length,
+                            0,
+                        );
+                    }
                     return server_busy_response();
                 }
             };
@@ -672,17 +693,19 @@ async fn patch_data(
     let elapsed = start_time.elapsed().as_millis();
     let (status_code, message, affected_records) = patch_result;
 
-    log_request(
-        &date_time,
-        status_code,
-        "PATCH",
-        &requested_path,
-        "false",
-        elapsed,
-        state.max_request_path_len,
-        state.max_request_path_id_length,
-        affected_records,
-    );
+    if !state.logs_disabled {
+        log_request(
+            &date_time,
+            status_code,
+            "PATCH",
+            &requested_path,
+            "false",
+            elapsed,
+            state.max_request_path_len,
+            state.max_request_path_id_length,
+            affected_records,
+        );
+    }
 
     match status_code {
         "200" => (StatusCode::OK, message).into_response(),
@@ -710,17 +733,19 @@ async fn handle_form_submission(
 
     if form_data.fields.is_empty() {
         let elapsed = start_time.elapsed().as_millis();
-        log_request(
-            &date_time,
-            "422",
-            "POST",
-            &requested_path,
-            "Fields are empty!!",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            0,
-        );
+        if !state.logs_disabled {
+            log_request(
+                &date_time,
+                "422",
+                "POST",
+                &requested_path,
+                "Fields are empty!!",
+                elapsed,
+                state.max_request_path_len,
+                state.max_request_path_id_length,
+                0,
+            );
+        }
         return (
             StatusCode::OK,
             axum::Json(json!(
@@ -734,17 +759,19 @@ async fn handle_form_submission(
     }
 
     let elapsed = start_time.elapsed().as_millis();
-    log_request(
-        &date_time,
-        "200",
-        "POST",
-        &requested_path,
-        "false",
-        elapsed,
-        state.max_request_path_len,
-        state.max_request_path_id_length,
-        form_data.fields.len(),
-    );
+    if !state.logs_disabled {
+        log_request(
+            &date_time,
+            "200",
+            "POST",
+            &requested_path,
+            "false",
+            elapsed,
+            state.max_request_path_len,
+            state.max_request_path_id_length,
+            form_data.fields.len(),
+        );
+    }
     return (
         StatusCode::OK,
         axum::Json(json!(
@@ -765,6 +792,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
         paginate: config.paginate,
         max_request_path_id_length: config.max_request_path_id_length,
         max_request_path_len: config.max_request_path_len,
+        logs_disabled: config.logs_disabled,
     });
 
     let cors_layer = if config.cors_enabled {
@@ -910,6 +938,10 @@ fn initialize_cmd() -> Result<Config, IOError> {
             .long("cors")
             .num_args(0)
             .help("Enable CORS support (reads allowed domains from chimera.cors file)"))
+        .arg(Arg::new("quiet")
+            .long("quiet")
+            .num_args(0)
+            .help("Disable logs"))    
         .get_matches();
 
     let json_file_path = matches
@@ -940,6 +972,7 @@ fn initialize_cmd() -> Result<Config, IOError> {
         .expect("Invalid page format");
     let auto_generate_enabled = matches.get_flag("auto_generate_data");
     let cors_enabled = matches.get_flag("cors");
+    let logs_disabled = matches.get_flag("quiet");
     let mut allowed_origins = Vec::new();
 
     if cors_enabled {
@@ -1017,6 +1050,7 @@ fn initialize_cmd() -> Result<Config, IOError> {
         max_request_path_id_length: spaces,
         max_request_path_len: longest_path,
         cors_enabled: cors_enabled,
+        logs_disabled: logs_disabled,
         allowed_origins: allowed_origins,
     })
 }
