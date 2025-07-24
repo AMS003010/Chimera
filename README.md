@@ -18,11 +18,20 @@ Now with **automatic data generation**, **null value simulation**, **long path s
 * IoT Device Simulation
 * Prototyping for Microservices
 
+### Ingests data of format:
+
+* `json`
+* `csv`
+
+### Mock Protocols like:
+
+* `HTTP`
+* `Websockets`
+
 ### Future support for:
 
 * Webhook Simulation (🪝)
 * GraphQL Mocking (⬢)
-* WebSocket Testing (🕸️)
 * gRPC Simulation (🌍)
 * MQTT Broker Simulation (🍔)
 
@@ -41,6 +50,7 @@ Now with **automatic data generation**, **null value simulation**, **long path s
 * **Easy Configuration** – Set up ports, file paths, latency, sorting, and pagination via CLI.
 * **Form Submission** – Supports `POST` form submissions at `/submit-form`.
 * **CORS Control** – Enable/disable CORS by specifying allowed domains in a `chimera.cors` file.
+* **Quiet Mode** – Disable logs with the `--quiet` flag.
 
 ## 🐲 Installation
 
@@ -107,64 +117,46 @@ cargo install --path .
 chimera-cli --path data.json
 ```
 
-### Quick Download Script (Linux/macOS)
-```bash
-# One-liner to download and set up the latest release for your platform
-curl -s https://api.github.com/repos/AMS003010/Chimera/releases/latest | \
-jq -r ".assets[] | select(.name | test(\"$(uname -s | tr '[:upper:]' '[:lower:]')\")) | .browser_download_url" | \
-xargs curl -sL -o chimera.zip && unzip chimera.zip && chmod +x chimera-* && echo "Download complete!"
-```
-
-## 🐲 Usage
+## 🐲 Usage (Websocket mode)
 
 ### CLI Commands
 
-Here's all the available CLI commands
+Here's all the available CLI commands (`Websocket` mode)
 
-`chimera-cli.exe --path .\data.json`: Start the Chimera server with data from `data.json` at default port `8080`
+`chimera-cli.exe --path .\data.json websocket`: Start the Chimera Websocket server with data from `data.json` at default port `8080`
 
-`chimera-cli.exe --path .\data.json --port 4000`: Start the Chimera server at port `4000`
+`chimera-cli.exe --path .\data.csv websocket`: Start the Chimera Websocket server with schema from `data.csv` at default port `8080`
 
-`chimera-cli.exe --path .\data.json --sort products desc id`: Sort records in `/products` route by `id` in `desc` order
+`chimera-cli.exe --path .\data.json websocket --port 4000`: Start the Chimera server at port `4000`
 
-`chimera-cli.exe --path .\data.json --page 3`: Start server with the records paginated with a factor `3`
+`chimera-cli.exe --path .\data.json websocket --sort products desc id`: Sort records in `/products` route by `id` in `desc` order
 
-`chimera-cli.exe --path .\data.json --latency 100`: Simulate latency of `100 ms`
+`chimera-cli.exe --path .\data.json websocket --page 3`: Start server with the records paginated with a factor `3`
 
-`chimera-cli.exe --path .\schema.json -X`: Enable automatic data generation using schema from `schema.json`
+`chimera-cli.exe --path .\schema.json websocket -X`: Enable automatic data generation using schema from `schema.json`
 
-`chimera-cli.exe --path .\data.json --cors`: Enable CORS and allow only domains from `chimera.cors` file
+`chimera-cli.exe --path .\data.json websocket --cors`: Enable CORS and allow only domains from `chimera.cors` file
+
+`chimera-cli.exe --path --quiet .\data.json websocket`: Disable runtime logs
 
 > \[!NOTE]
 > Use multiple arguments together for more diverse control
 
-### CORS Configuration
-
-To enable CORS, create a file named `chimera.cors` in the same directory as the binary with allowed domain(s):
-
-```
-http://localhost:3000
-https://example.com
-https://api.example.com
-https://*.example.org
-http://127.0.0.1:8080
-```
-
 ### API Endpoints
 
-| Method   | Endpoint        | Description                              |
-| -------- | --------------- | ---------------------------------------- |
-| `GET`    | `/`             | Health check                             |
-| `GET`    | `/{route}`      | Retrieve all data under a route          |
-| `GET`    | `/{route}/{id}` | Retrieve a specific record by ID         |
-| `POST`   | `/{route}`      | Add a record under a route               |
-| `DELETE` | `/{route}`      | Delete all records under a route         |
-| `DELETE` | `/{route}/{id}` | Delete a specific record by ID           |
-| `PUT`    | `/{route}/{id}` | Replace a specific record by ID          |
-| `PATCH`  | `/{route}/{id}` | Partially update a specific record by ID |
-| `POST`   | `/submit-form`  | Handle form submissions (URL-encoded)    |
+| Endpoint        | Description                              |
+| --------------- | ---------------------------------------- |
+| `/{route}`      | Establish a connection                   |
 
-## 🔧 Auto Data Generation
+#### Messages
+
+| Message                     | format  | Behaviour                   |
+| --------------------------- | ------- | --------------------------- |
+| * (any text)                |  text   | Echo back the message       |
+| `{"action": "connections"}` |  json   | Get all active connections  |
+| `{"action": "refresh"}`     |  json   | Get data                    |
+
+### 🔧 Auto Data Generation
 
 With the `-X` flag, Chimera can generate data on the fly using a schema JSON structure like:
 
@@ -227,7 +219,16 @@ Pass this JSON file as an argument to `--path`
   * `boolean`: Random boolean value
 * `null_percentage`: Percentage of fields and rows to be randomly set as `null`
 
-## 📜 Example Data JSON File (`data.json`)
+### 📜 Example Data CSV File (`data.csv`)
+
+```csv
+path,no_of_entries,null_percentage,schema
+api/v2/data,200,0,"{""id"":""id"",""created_on"":""date"",""mssg"":""lorem""}"
+products,700,90,"{""id"":""id"",""rsnd"":""integer"",""name"":""name"",""probability"":""boolean"",""date"":""datetime"",""desc"":""lorem""}"
+api/products,300,0,"{""id"":""id"",""rsnd"":""integer"",""name"":""name"",""probability"":""boolean"",""date"":""datetime"",""desc"":""lorem""}"
+```
+
+### 📜 Example Data JSON File (`data.json`)
 
 ```json
 {
@@ -260,7 +261,7 @@ Pass this JSON file as an argument to `--path`
 }
 ```
 
-## 📜 Example Schema JSON File (`schema.json`)
+### 📜 Example Schema JSON File (`schema.json`)
 
 ```json
 {
@@ -304,6 +305,211 @@ Pass this JSON file as an argument to `--path`
     ]
 }
 ```
+
+
+## 🐲 Usage (HTTP mode)
+
+### CLI Commands
+
+Here's all the available CLI commands (`HTTP` mode)
+
+`chimera-cli.exe --path .\data.json http`: Start the Chimera HTTP server with data from `data.json` at default port `8080`
+
+`chimera-cli.exe --path .\data.csv http`: Start the Chimera HTTP server with schema from `data.csv` at default port `8080`
+
+`chimera-cli.exe --path .\data.json http --port 4000`: Start the Chimera server at port `4000`
+
+`chimera-cli.exe --path .\data.json http --sort products desc id`: Sort records in `/products` route by `id` in `desc` order
+
+`chimera-cli.exe --path .\data.json http --page 3`: Start server with the records paginated with a factor `3`
+
+`chimera-cli.exe --path .\data.json http --latency 100`: Simulate latency of `100 ms`
+
+`chimera-cli.exe --path .\schema.json http -X`: Enable automatic data generation using schema from `schema.json`
+
+`chimera-cli.exe --path .\data.json http --cors`: Enable CORS and allow only domains from `chimera.cors` file
+
+`chimera-cli.exe --path --quiet .\data.json http`: Disable runtime logs
+
+> \[!NOTE]
+> Use multiple arguments together for more diverse control
+
+### CORS Configuration
+
+To enable CORS, create a file named `chimera.cors` in the same directory as the binary with allowed domain(s):
+
+```
+http://localhost:3000
+https://example.com
+https://api.example.com
+https://*.example.org
+http://127.0.0.1:8080
+```
+
+### API Endpoints
+
+| Method   | Endpoint        | Description                              |
+| -------- | --------------- | ---------------------------------------- |
+| `GET`    | `/`             | Health check                             |
+| `GET`    | `/{route}`      | Retrieve all data under a route          |
+| `GET`    | `/{route}/{id}` | Retrieve a specific record by ID         |
+| `POST`   | `/{route}`      | Add a record under a route               |
+| `DELETE` | `/{route}`      | Delete all records under a route         |
+| `DELETE` | `/{route}/{id}` | Delete a specific record by ID           |
+| `PUT`    | `/{route}/{id}` | Replace a specific record by ID          |
+| `PATCH`  | `/{route}/{id}` | Partially update a specific record by ID |
+| `POST`   | `/submit-form`  | Handle form submissions (URL-encoded)    |
+
+### 🔧 Auto Data Generation
+
+With the `-X` flag, Chimera can generate data on the fly using a schema JSON structure like:
+
+```json
+{
+    "routes": [
+        {
+            "path":"api/v2/data",
+            "no_of_entries": 2,
+            "schema": {
+                "id": "id",
+                "created_on": "date",
+                "mssg": "lorem"
+            },
+            "null_percentage": 0
+        },
+        {
+            "path":"products",
+            "no_of_entries": 700,
+            "schema": {
+                "id": "id",
+                "rsnd": "integer",
+                "name": "name",
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
+            },
+            "null_percentage": 0
+        },
+        {
+            "path":"api/products",
+            "no_of_entries": 70,
+            "schema": {
+                "id": "id",
+                "rsnd": "integer",
+                "name": "name",
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
+            },
+            "null_percentage": 0
+        }
+    ]
+}
+```
+
+Pass this JSON file as an argument to `--path`
+
+* `path`: Name of the route
+* `no_of_entries`: Number of mock entries to generate
+* `schema`: Define fields and their data type
+
+  * `name`: Random name
+  * `id`: Random number
+  * `integer`: Random number
+  * `date`: Date in `DD-MM-YYYY` format
+  * `datetime`: Date in `DD-MM-YYYYTHH:MM:SS` format
+  * `lorem`: Random text
+  * `string`: Random word
+  * `boolean`: Random boolean value
+* `null_percentage`: Percentage of fields and rows to be randomly set as `null`
+
+### 📜 Example Data CSV File (`data.csv`)
+
+```csv
+path,no_of_entries,null_percentage,schema
+api/v2/data,200,0,"{""id"":""id"",""created_on"":""date"",""mssg"":""lorem""}"
+products,700,90,"{""id"":""id"",""rsnd"":""integer"",""name"":""name"",""probability"":""boolean"",""date"":""datetime"",""desc"":""lorem""}"
+api/products,300,0,"{""id"":""id"",""rsnd"":""integer"",""name"":""name"",""probability"":""boolean"",""date"":""datetime"",""desc"":""lorem""}"
+```
+
+### 📜 Example Data JSON File (`data.json`)
+
+```json
+{
+    "data":[
+        {
+            "id":1,
+            "created_on":"25-03-24",
+            "mssg":"Why spiders? Why couldn’t it be ‘follow the butterflies’?"
+        },
+        {
+            "id":2,
+            "created_on":"02-11-24",
+            "mssg":"He can run faster than Severus Snape confronted with shampoo."
+        }
+    ],
+    "api/products": [
+        {
+            "id":80,
+            "name": "veritaserum"
+        },
+        {
+            "id":40,
+            "name": "polyjuice potion"
+        },
+        {
+            "id":60,
+            "name": "felix felicis"
+        }
+    ]
+}
+```
+
+### 📜 Example Schema JSON File (`schema.json`)
+
+```json
+{
+    "routes": [
+        {
+            "path":"api/v2/data",
+            "no_of_entries": 2,
+            "schema": {
+                "id": "id",
+                "created_on": "date",
+                "mssg": "lorem"
+            },
+            "null_percentage": 0
+        },
+        {
+            "path":"products",
+            "no_of_entries": 700,
+            "schema": {
+                "id": "id",
+                "rsnd": "integer",
+                "name": "name",
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
+            },
+            "null_percentage": 0
+        },
+        {
+            "path":"api/products",
+            "no_of_entries": 70,
+            "schema": {
+                "id": "id",
+                "rsnd": "integer",
+                "name": "name",
+                "probability": "boolean",
+                "date": "datetime",
+                "desc": "lorem"
+            },
+            "null_percentage": 0
+        }
+    ]
+}
+```
+
 
 ## 🐲 Maintainers
 
