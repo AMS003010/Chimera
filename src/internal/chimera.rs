@@ -37,7 +37,7 @@ pub struct AppStateWs {
     pub logs_disabled: bool,
 }
 
-pub const CHIMERA_LATEST_VERSION: &str = "0.6.2";
+pub const CHIMERA_LATEST_VERSION: &str = "0.6.9";
 
 // Change VERSION in https://img.shields.io/badge/version-0.5.0-blue.svg
 // Change VERSION in docs (website)
