@@ -180,7 +180,7 @@ pub async fn send_route_data(
     ip: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let data = json_data.read().await;
-    let mut response = match data.get(route) {
+    let response = match data.get(route) {
         Some(route_data) => {
             let mut value = route_data.clone();
 

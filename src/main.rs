@@ -13,18 +13,18 @@ use axum::{
 };
 use clap::{Arg, Command};
 use colored::Colorize;
+use csv::Reader;
 use local_ip_address::local_ip;
-use serde_json::{Value, Map};
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::io::Error as IOError;
 use std::path::Path as Std_path;
+use std::path::Path;
 use std::process;
 use std::sync::Arc;
 use std::{fs, net::SocketAddr};
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
-use std::path::Path;
-use csv::Reader;
 
 mod internal {
     pub mod chimera;
@@ -414,30 +414,94 @@ fn initialize_cmd() -> Result<Config, IOError> {
         }
     }
 
-    let json_content = fs::read_to_string(&json_file_path).expect("Failed to read Json File");
+    let json_content = fs::read_to_string(&json_file_path).expect("Failed to read file");
 
-    let parsed_content: Value = if auto_generate_enabled {
-        let schema: JsonDataGeneratorSchema = serde_json::from_str(&json_content)
-            .expect("Invalid schema format for auto data generation");
-        generate_json_from_schema(schema)
-    } else {
-        let content: Value = serde_json::from_str(&json_content).expect("Invalid Json format");
+    // Check file extension first
+    let file_extension = Path::new(&json_file_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
 
-        if let Some(routes) = content.get("routes") {
-            if routes.is_array() {
-                eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
-                process::exit(1);
+    let parsed_content: Value = match file_extension.to_lowercase().as_str() {
+        "csv" => {
+            let mut reader = Reader::from_reader(json_content.as_bytes());
+            let mut schema_entries = Vec::new();
+
+            for result in reader.records() {
+                let record = result.expect("Failed to read CSV record");
+
+                if record.len() >= 4 {
+                    let path = record.get(0).unwrap_or("").to_string();
+                    let no_of_entries: u32 = record
+                        .get(1)
+                        .unwrap_or("0")
+                        .parse()
+                        .expect("Invalid no_of_entries value");
+                    let null_percentage: u8 = record
+                        .get(2)
+                        .unwrap_or("0")
+                        .parse()
+                        .expect("Invalid null_percentage value");
+                    let schema_json: Value = serde_json::from_str(record.get(3).unwrap_or("{}"))
+                        .expect("Invalid schema JSON in CSV");
+
+                    // Create each route entry
+                    let mut route_entry = Map::new();
+                    route_entry.insert("path".to_string(), Value::String(path));
+                    route_entry.insert(
+                        "no_of_entries".to_string(),
+                        Value::Number(no_of_entries.into()),
+                    );
+                    route_entry.insert("schema".to_string(), schema_json);
+                    route_entry.insert(
+                        "null_percentage".to_string(),
+                        Value::Number(null_percentage.into()),
+                    );
+
+                    schema_entries.push(Value::Object(route_entry));
+                }
+            }
+
+            let mut routes_object = Map::new();
+            routes_object.insert("routes".to_string(), Value::Array(schema_entries));
+            let routes_value = Value::Object(routes_object);
+
+            let schema: JsonDataGeneratorSchema = serde_json::from_value(routes_value)
+                .expect("Failed to convert CSV data to schema format");
+            generate_json_from_schema(schema)
+        }
+        "json" => {
+            if auto_generate_enabled {
+                let schema: JsonDataGeneratorSchema = serde_json::from_str(&json_content)
+                    .expect("Invalid schema format for auto data generation");
+                generate_json_from_schema(schema)
             } else {
-                eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
-                process::exit(1);
+                let content: Value =
+                    serde_json::from_str(&json_content).expect("Invalid Json format");
+
+                if let Some(routes) = content.get("routes") {
+                    if routes.is_array() {
+                        eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
+                        process::exit(1);
+                    } else {
+                        eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
+                        process::exit(1);
+                    }
+                }
+
+                if !content.is_object() {
+                    eprintln!(
+                        "Error: The given json file is a JSON Array! It should be a JSON Object"
+                    );
+                    process::exit(1);
+                }
+                content
             }
         }
-
-        if !content.is_object() {
-            eprintln!("Error: The given json file is a JSON Array! It should be a JSON Object");
+        _ => {
+            eprintln!("Error: Unsupported file format. Please provide a .json or .csv file");
             process::exit(1);
         }
-        content
     };
 
     let mut spaces = 0;
