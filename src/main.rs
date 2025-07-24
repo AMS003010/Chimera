@@ -1,787 +1,38 @@
-use crate::internal::chimera::{AppState, Config, CHIMERA_LATEST_VERSION};
-use crate::internal::helpers::{
-    compare_values, find_key_and_id_lengths, log_request, server_busy_response, shutdown_signal,
+use crate::internal::chimera::{AppState, AppStateWs, Config, CHIMERA_LATEST_VERSION};
+use crate::internal::helpers::{find_key_and_id_lengths, shutdown_signal};
+use crate::internal::http_handlers::{
+    delete_data, get_data, handle_form_submission, patch_data, ping_pong, post_data, put_data,
 };
 use crate::internal::json_data_generate::{generate_json_from_schema, JsonDataGeneratorSchema};
 use crate::internal::port::find_available_port;
+use crate::internal::ws_handlers::{handle_websocket, ws_fallback_handler};
 use axum::{
-    extract::{Path, State},
     http::Method,
-    http::{StatusCode, Uri},
-    response::{IntoResponse, Response},
     routing::{delete, get, patch, post, put},
-    Form, Json, Router,
+    Router,
 };
-use chrono::Local;
 use clap::{Arg, Command};
 use colored::Colorize;
-use hyper::server::Server;
 use local_ip_address::local_ip;
-use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, Map};
 use std::collections::HashMap;
 use std::io::Error as IOError;
 use std::path::Path as Std_path;
 use std::process;
 use std::sync::Arc;
-use std::time::Instant;
 use std::{fs, net::SocketAddr};
 use tokio::sync::RwLock;
-use tokio::time::{sleep, timeout, Duration};
 use tower_http::cors::{Any, CorsLayer};
+use std::path::Path;
+use csv::Reader;
 
 mod internal {
     pub mod chimera;
     pub mod helpers;
+    pub mod http_handlers;
     pub mod json_data_generate;
     pub mod port;
-}
-
-#[derive(Deserialize)]
-struct FormData {
-    #[serde(flatten)]
-    fields: HashMap<String, String>,
-}
-
-async fn ping_pong() -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        [("content-type", "text/plain")],
-        format!(
-            "status: ONLINE\nversion: {}\n🐲 All systems fused and breathing fire.",
-            CHIMERA_LATEST_VERSION
-        )
-        .to_string(),
-    )
-}
-
-async fn get_data(
-    Path(route): Path<String>,
-    State(state): State<Arc<AppState>>,
-    uri: Uri,
-) -> Response {
-    let start_time = Instant::now();
-
-    // Get these before locking
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-
-    // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
-
-    // Clone only the needed data immediately after acquiring lock
-    let route_data = {
-        let json_data = match timeout(Duration::from_millis(100), state.json_value.read()).await {
-            Ok(lock) => {
-                if let Some(path_id) = route.split("/").last() {
-                    if let Ok(_id) = path_id.parse::<usize>() {
-                        let mut route_parts: Vec<&str> = route.split('/').collect();
-                        route_parts.pop();
-                        let base_path = route_parts.join("/");
-                        lock.get(&base_path).cloned()
-                    } else {
-                        lock.get(&route).cloned()
-                    }
-                } else {
-                    lock.get(&route).cloned()
-                }
-            }
-            Err(_) => {
-                let elapsed = start_time.elapsed().as_millis();
-                if !state.logs_disabled {
-                    log_request(
-                        &date_time,
-                        "500",
-                        "GET",
-                        &requested_path,
-                        "Server busy !!",
-                        elapsed,
-                        state.max_request_path_len,
-                        state.max_request_path_id_length,
-                        0,
-                    );
-                }
-                return server_busy_response();
-            }
-        };
-        json_data
-    };
-
-    match route_data {
-        Some(mut value) => {
-            if let Some(path_id) = route.split("/").last() {
-                if let Ok(_id) = path_id.parse::<usize>() {
-                    if let Value::Array(ref mut arr) = value {
-                        arr.retain(|obj| {
-                            obj.get("id")
-                                .and_then(|id| id.as_u64())
-                                .map_or(false, |id_num| id_num == _id as u64)
-                        });
-                    }
-                    let elapsed = start_time.elapsed().as_millis();
-                    if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "200",
-                            "GET",
-                            &requested_path,
-                            "false",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            value.as_array().map_or(0, |arr| arr.len()),
-                        );
-                    }
-                    return (StatusCode::OK, axum::Json(value)).into_response();
-                }
-            }
-
-            // Rest of processing happens WITHOUT holding the lock
-            if let Some((order, key)) = state.sort_rules.get(&route) {
-                if let Value::Array(arr) = &mut value {
-                    if arr.len() > 1 {
-                        use rayon::slice::ParallelSliceMut;
-                        arr.par_sort_by(|a, b| compare_values(a, b, key, order));
-                    }
-                }
-            }
-
-            if state.paginate > 0 {
-                if let Value::Array(arr) = &value {
-                    if arr.len() > state.paginate as usize {
-                        value = Value::Array(arr[..state.paginate as usize].to_vec());
-                    }
-                }
-            }
-
-            let elapsed = start_time.elapsed().as_millis();
-            if !state.logs_disabled {
-                log_request(
-                    &date_time,
-                    "200",
-                    "GET",
-                    &requested_path,
-                    "false",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    value.as_array().map_or(0, |arr| arr.len()),
-                );
-            }
-            (StatusCode::OK, axum::Json(value)).into_response()
-        }
-        None => {
-            let elapsed = start_time.elapsed().as_millis();
-            if !state.logs_disabled {
-                log_request(
-                    &date_time,
-                    "404",
-                    "GET",
-                    &requested_path,
-                    "Route not registered !!",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    0,
-                );
-            }
-            (StatusCode::NOT_FOUND, "Route not registered !!").into_response()
-        }
-    }
-}
-
-async fn delete_data(
-    Path(route): Path<String>,
-    State(state): State<Arc<AppState>>,
-    uri: Uri,
-) -> Response {
-    let start_time = Instant::now();
-
-    // Get these before locking
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-
-    // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
-
-    // Handle the DELETE operation
-    let delete_result = {
-        let mut json_data =
-            match timeout(Duration::from_millis(100), state.json_value.write()).await {
-                Ok(lock) => lock,
-                Err(_) => {
-                    let elapsed = start_time.elapsed().as_millis();
-                    if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "DELETE",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
-                        );
-                    }
-                    return server_busy_response();
-                }
-            };
-
-        // Check if we're deleting a specific ID
-        if let Some(path_id) = route.split("/").last() {
-            if let Ok(id) = path_id.parse::<usize>() {
-                // Extract base path (remove the ID part)
-                let mut route_parts: Vec<&str> = route.split('/').collect();
-                route_parts.pop();
-                let base_path = route_parts.join("/");
-
-                match json_data.get_mut(&base_path) {
-                    Some(Value::Array(arr)) => {
-                        let original_len = arr.len();
-                        arr.retain(|obj| {
-                            obj.get("id")
-                                .and_then(|id_val| id_val.as_u64())
-                                .map_or(true, |id_num| id_num != id as u64)
-                        });
-                        let deleted_count = original_len - arr.len();
-
-                        if deleted_count > 0 {
-                            (
-                                "200",
-                                format!("Deleted {} record(s) with id {}", deleted_count, id),
-                                deleted_count,
-                            )
-                        } else {
-                            ("404", format!("No record found with id {}", id), 0)
-                        }
-                    }
-                    Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
-                    None => ("404", "Route not registered !!".to_string(), 0),
-                }
-            } else {
-                // Delete entire collection
-                match json_data.get_mut(&route) {
-                    Some(Value::Array(arr)) => {
-                        let deleted_count = arr.len();
-                        arr.clear();
-                        (
-                            "200",
-                            "All records deleted successfully".to_string(),
-                            deleted_count,
-                        )
-                    }
-                    Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
-                    None => ("404", "Route not registered !!".to_string(), 0),
-                }
-            }
-        } else {
-            // Delete entire collection
-            match json_data.get_mut(&route) {
-                Some(Value::Array(arr)) => {
-                    let deleted_count = arr.len();
-                    arr.clear();
-                    (
-                        "200",
-                        "All records deleted successfully".to_string(),
-                        deleted_count,
-                    )
-                }
-                Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
-                None => ("404", "Route not registered !!".to_string(), 0),
-            }
-        }
-    };
-
-    let elapsed = start_time.elapsed().as_millis();
-    let (status_code, message, affected_records) = delete_result;
-
-    if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "DELETE",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
-    }
-
-    // Return appropriate response
-    match status_code {
-        "200" => (StatusCode::OK, message).into_response(),
-        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
-        "404" => (StatusCode::NOT_FOUND, message).into_response(),
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-    }
-}
-
-async fn post_data(
-    Path(route): Path<String>,
-    State(state): State<Arc<AppState>>,
-    uri: Uri,
-    Json(payload): Json<Value>,
-) -> Response {
-    let start_time = Instant::now();
-
-    // Get these before locking
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-
-    // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
-
-    // Handle the POST operation
-    let post_result = {
-        let mut json_data =
-            match timeout(Duration::from_millis(100), state.json_value.write()).await {
-                Ok(lock) => lock,
-                Err(_) => {
-                    let elapsed = start_time.elapsed().as_millis();
-                    if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "POST",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
-                        );
-                    }
-                    return server_busy_response();
-                }
-            };
-
-        if let Value::Object(ref mut obj) = *json_data {
-            match obj.get_mut(&route) {
-                Some(Value::Array(arr)) => match payload {
-                    Value::Array(new_items) => {
-                        let added_count = new_items.len();
-                        arr.extend(new_items);
-                        (
-                            "201",
-                            format!("Added {} record(s) successfully", added_count),
-                            added_count,
-                        )
-                    }
-                    single_item => {
-                        arr.push(single_item);
-                        ("201", "Record added successfully".to_string(), 1)
-                    }
-                },
-                Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
-                None => {
-                    // Create new route with the payload
-                    match payload {
-                        Value::Array(items) => {
-                            let added_count = items.len();
-                            obj.insert(route.clone(), Value::Array(items));
-                            (
-                                "201",
-                                format!("Created route and added {} record(s)", added_count),
-                                added_count,
-                            )
-                        }
-                        single_item => {
-                            obj.insert(route.clone(), Value::Array(vec![single_item]));
-                            ("201", "Created route and added record".to_string(), 1)
-                        }
-                    }
-                }
-            }
-        } else {
-            ("500", "Root JSON is not an object".to_string(), 0)
-        }
-    };
-
-    let elapsed = start_time.elapsed().as_millis();
-    let (status_code, message, affected_records) = post_result;
-
-    if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "POST",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
-    }
-
-    match status_code {
-        "201" => (StatusCode::CREATED, message).into_response(),
-        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
-        "500" => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-    }
-}
-
-async fn put_data(
-    Path(route): Path<String>,
-    State(state): State<Arc<AppState>>,
-    uri: Uri,
-    Json(payload): Json<Value>,
-) -> Response {
-    let start_time = Instant::now();
-
-    // Get these before locking
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-
-    // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
-
-    // Handle the PUT operation
-    let put_result = {
-        let mut json_data =
-            match timeout(Duration::from_millis(100), state.json_value.write()).await {
-                Ok(lock) => lock,
-                Err(_) => {
-                    let elapsed = start_time.elapsed().as_millis();
-                    if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "PUT",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
-                        );
-                    }
-                    return server_busy_response();
-                }
-            };
-
-        if let Value::Object(ref mut obj) = *json_data {
-            // Check if we're updating a specific ID
-            if let Some(path_id) = route.split("/").last() {
-                if let Ok(id) = path_id.parse::<usize>() {
-                    // Extract base path (remove the ID part)
-                    let mut route_parts: Vec<&str> = route.split('/').collect();
-                    route_parts.pop();
-                    let base_path = route_parts.join("/");
-
-                    match obj.get_mut(&base_path) {
-                        Some(Value::Array(arr)) => {
-                            let mut found = false;
-                            for item in arr.iter_mut() {
-                                if let Some(item_id) = item.get("id").and_then(|id| id.as_u64()) {
-                                    if item_id == id as u64 {
-                                        *item = payload.clone();
-                                        // Ensure the ID is preserved
-                                        if let Value::Object(ref mut item_obj) = item {
-                                            item_obj.insert(
-                                                "id".to_string(),
-                                                Value::Number(serde_json::Number::from(id)),
-                                            );
-                                        }
-                                        found = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if found {
-                                ("200", format!("Updated record with id {}", id), 1)
-                            } else {
-                                // Create new record with the specified ID
-                                let mut new_item = payload.clone();
-                                if let Value::Object(ref mut item_obj) = new_item {
-                                    item_obj.insert(
-                                        "id".to_string(),
-                                        Value::Number(serde_json::Number::from(id)),
-                                    );
-                                }
-                                arr.push(new_item);
-                                ("201", format!("Created record with id {}", id), 1)
-                            }
-                        }
-                        Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
-                        None => ("404", "Route not registered !!".to_string(), 0),
-                    }
-                } else {
-                    // Replace entire collection
-                    let record_count = match &payload {
-                        Value::Array(arr) => arr.len(),
-                        _ => 1,
-                    };
-                    let was_existing = obj.contains_key(&route);
-                    obj.insert(route.clone(), payload);
-
-                    if was_existing {
-                        (
-                            "200",
-                            format!("Replaced entire collection with {} record(s)", record_count),
-                            record_count,
-                        )
-                    } else {
-                        (
-                            "201",
-                            format!("Created collection with {} record(s)", record_count),
-                            record_count,
-                        )
-                    }
-                }
-            } else {
-                // Replace entire collection
-                let record_count = match &payload {
-                    Value::Array(arr) => arr.len(),
-                    _ => 1,
-                };
-                let was_existing = obj.contains_key(&route);
-                obj.insert(route.clone(), payload);
-
-                if was_existing {
-                    (
-                        "200",
-                        format!("Replaced entire collection with {} record(s)", record_count),
-                        record_count,
-                    )
-                } else {
-                    (
-                        "201",
-                        format!("Created collection with {} record(s)", record_count),
-                        record_count,
-                    )
-                }
-            }
-        } else {
-            ("500", "Root JSON is not an object".to_string(), 0)
-        }
-    };
-
-    let elapsed = start_time.elapsed().as_millis();
-    let (status_code, message, affected_records) = put_result;
-
-    if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "PUT",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
-    }
-
-    match status_code {
-        "200" => (StatusCode::OK, message).into_response(),
-        "201" => (StatusCode::CREATED, message).into_response(),
-        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
-        "404" => (StatusCode::NOT_FOUND, message).into_response(),
-        "500" => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-    }
-}
-
-async fn patch_data(
-    Path(route): Path<String>,
-    State(state): State<Arc<AppState>>,
-    uri: Uri,
-    Json(payload): Json<Value>,
-) -> Response {
-    let start_time = Instant::now();
-
-    // Get these before locking
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-
-    // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
-
-    // Handle the PATCH operation
-    let patch_result = {
-        let mut json_data =
-            match timeout(Duration::from_millis(100), state.json_value.write()).await {
-                Ok(lock) => lock,
-                Err(_) => {
-                    let elapsed = start_time.elapsed().as_millis();
-                    if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "PATCH",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
-                        );
-                    }
-                    return server_busy_response();
-                }
-            };
-
-        if let Value::Object(ref mut obj) = *json_data {
-            // Check if we're updating a specific ID
-            if let Some(path_id) = route.split("/").last() {
-                if let Ok(id) = path_id.parse::<usize>() {
-                    // Extract base path (remove the ID part)
-                    let mut route_parts: Vec<&str> = route.split('/').collect();
-                    route_parts.pop();
-                    let base_path = route_parts.join("/");
-
-                    match obj.get_mut(&base_path) {
-                        Some(Value::Array(arr)) => {
-                            let mut found = false;
-                            for item in arr.iter_mut() {
-                                if let Some(item_id) = item.get("id").and_then(|id| id.as_u64()) {
-                                    if item_id == id as u64 {
-                                        // Merge the payload into the existing item
-                                        if let (Value::Object(existing), Value::Object(updates)) =
-                                            (item, &payload)
-                                        {
-                                            for (key, value) in updates {
-                                                existing.insert(key.clone(), value.clone());
-                                            }
-                                            found = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            if found {
-                                ("200", format!("Partially updated record with id {}", id), 1)
-                            } else {
-                                ("404", format!("No record found with id {}", id), 0)
-                            }
-                        }
-                        Some(_) => ("400", "Route exists but is not an array.".to_string(), 0),
-                        None => ("404", "Route not registered !!".to_string(), 0),
-                    }
-                } else {
-                    (
-                        "400",
-                        "PATCH requires a specific resource ID".to_string(),
-                        0,
-                    )
-                }
-            } else {
-                (
-                    "400",
-                    "PATCH requires a specific resource ID".to_string(),
-                    0,
-                )
-            }
-        } else {
-            ("500", "Root JSON is not an object".to_string(), 0)
-        }
-    };
-
-    let elapsed = start_time.elapsed().as_millis();
-    let (status_code, message, affected_records) = patch_result;
-
-    if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "PATCH",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
-    }
-
-    match status_code {
-        "200" => (StatusCode::OK, message).into_response(),
-        "400" => (StatusCode::BAD_REQUEST, message).into_response(),
-        "404" => (StatusCode::NOT_FOUND, message).into_response(),
-        "500" => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-    }
-}
-
-async fn handle_form_submission(
-    State(state): State<Arc<AppState>>,
-    uri: Uri,
-    Form(form_data): Form<FormData>,
-) -> Response {
-    let start_time = Instant::now();
-
-    // Get these before locking
-    let now = Local::now();
-    let date_time = now.format("%Y/%m/%d - %H:%M:%S").to_string();
-    let requested_path = uri.path();
-
-    // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
-
-    if form_data.fields.is_empty() {
-        let elapsed = start_time.elapsed().as_millis();
-        if !state.logs_disabled {
-            log_request(
-                &date_time,
-                "422",
-                "POST",
-                &requested_path,
-                "Fields are empty!!",
-                elapsed,
-                state.max_request_path_len,
-                state.max_request_path_id_length,
-                0,
-            );
-        }
-        return (
-            StatusCode::OK,
-            axum::Json(json!(
-                {
-                    "success": false,
-                    "received": form_data.fields,
-                }
-            )),
-        )
-            .into_response();
-    }
-
-    let elapsed = start_time.elapsed().as_millis();
-    if !state.logs_disabled {
-        log_request(
-            &date_time,
-            "200",
-            "POST",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            form_data.fields.len(),
-        );
-    }
-    return (
-        StatusCode::OK,
-        axum::Json(json!(
-            {
-                "success": true,
-                "received": form_data.fields,
-            }
-        )),
-    )
-        .into_response();
+    pub mod ws_handlers;
 }
 
 async fn run_axum_server(config: Config) -> Result<(), IOError> {
@@ -794,6 +45,8 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
         max_request_path_len: config.max_request_path_len,
         logs_disabled: config.logs_disabled,
     });
+
+    println!("[{}] Running HTTP", "INFO".green());
 
     let cors_layer = if config.cors_enabled {
         let allowed_origins = config
@@ -867,13 +120,16 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     println!(" - Network:   http://{}:{}\n", lan_ip, config.port);
 
     // Setup graceful shutdown
-    let server = Server::bind(&addr).serve(app.into_make_service());
-
-    // Create a future that completes when a shutdown signal is received
-    let graceful = server.with_graceful_shutdown(shutdown_signal());
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
 
     // Wait for the server to complete (or for a shutdown signal)
-    if let Err(e) = graceful.await {
+    if let Err(e) = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    {
         eprintln!("Server error: {}", e);
     } else {
         println!("\nReceived shutdown signal, starting graceful shutdown...");
@@ -888,91 +144,257 @@ async fn run_grpc_server(config: Config) -> Result<(), IOError> {
     Ok(())
 }
 
+pub async fn run_websocket_server(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    let shared_data = config.json_value.clone();
+    let state = Arc::new(AppStateWs {
+        sort_rules: config.sort_rules,
+        paginate: config.paginate,
+        logs_disabled: config.logs_disabled,
+    });
+    let connections = Arc::new(RwLock::new(HashMap::new()));
+
+    println!("[{}] Running Websocket", "INFO".green());
+
+    // Create CORS layer with proper method conversion
+    let cors_layer = if config.cors_enabled {
+        let allowed_origins = config
+            .allowed_origins
+            .iter()
+            .filter_map(|origin| origin.parse::<axum::http::HeaderValue>().ok())
+            .collect::<Vec<_>>();
+
+        if config.allowed_origins.is_empty() {
+            println!("[{}] CORS: * \n", "INFO".green());
+            CorsLayer::new()
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any)
+                .allow_origin(Any)
+                .allow_credentials(false)
+        } else {
+            println!("[{}] CORS: chimera.cors\n", "INFO".green());
+            CorsLayer::new()
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any)
+                .allow_origin(allowed_origins)
+                .allow_credentials(false)
+        }
+    } else {
+        println!("[{}] CORS: * \n", "INFO".green());
+        CorsLayer::new()
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::PATCH,
+                Method::DELETE,
+            ])
+            .allow_headers(Any)
+            .allow_origin(Any)
+    };
+
+    let app = Router::new()
+        .route("/ws/*route", get(handle_websocket))
+        .route("/ws", get(ws_fallback_handler))
+        .with_state((state, shared_data, connections))
+        .layer(cors_layer);
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+    // Display server info
+    let local = "127.0.0.1";
+    let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
+    println!(" - Local:     ws://{}:{}/ws", local, config.port);
+    println!(" - Network:   ws://{}:{}/ws\n", lan_ip, config.port);
+
+    // Modern Axum server setup
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+    Ok(())
+}
+
 fn initialize_cmd() -> Result<Config, IOError> {
-    let matches = Command::new("Chimera - JSoN SeRVeR")
+    let matches = Command::new("Chimera - Mock SeRVeR")
         .version(CHIMERA_LATEST_VERSION)
         .author("Abhijith M S")
-        .about("A powerful and fast⚡ JSoN SeRVeR built in Rust 🦀")
-        .arg(Arg::new("port")
-            .short('p')
-            .long("port")
-            .num_args(1)
-            .default_value("8080")
-            .help("Port for the server"))
+        .about("Multi-Protocol⚡ Mock SeRVeR built in Rust 🦀")
+        .arg_required_else_help(true)
+
+        // Common Args
         .arg(Arg::new("path")
             .short('P')
             .long("path")
             .num_args(1)
             .required(true)
             .help("Path to the Json file"))
-        .arg(Arg::new("latency")
-            .short('L')
-            .long("latency")
-            .num_args(1)
-            .default_value("0")
-            .help("Simulate latency (ms) from the server (Throttle)"))
-        .arg(Arg::new("sort")
-            .short('S')
-            .long("sort")
-            .num_args(1..)
-            .action(clap::ArgAction::Append)
-            .help("Sort entries in each route (e.g., --sort <route> <asc|desc> <attribute_in_route>)"))
-        .arg(Arg::new("page")
-            .short('A')
-            .long("page")
-            .num_args(1)
-            .default_value("0")
-            .help("Paginate records in the GET request"))
-        .arg(Arg::new("auto_generate_data")
-            .short('X')
-            .long("auto_generate_data")
-            .num_args(0)
-            .help("Auto generate data without a .json sample file. A route schema .json file should be passed to --path"))
-        .arg(Arg::new("protocol")
-            .short('Z')
-            .long("protocol")
-            .num_args(1)
-            .default_value("http")
-            .help("The protocol to use for the Mock API"))
-        .arg(Arg::new("cors")
-            .long("cors")
-            .num_args(0)
-            .help("Enable CORS support (reads allowed domains from chimera.cors file)"))
         .arg(Arg::new("quiet")
             .long("quiet")
             .num_args(0)
-            .help("Disable logs"))    
+            .help("Disable logs"))
+
+        // Args to `http`
+        .subcommand(
+            Command::new("http")
+            .about("Start HTTP REST API server")
+            .arg(Arg::new("port")
+                .short('p')
+                .long("port")
+                .num_args(1)
+                .default_value("8080")
+                .help("Port for the server"))
+            .arg(Arg::new("latency")
+                .short('L')
+                .long("latency")
+                .num_args(1)
+                .default_value("0")
+                .help("Simulate latency (ms) from the server (Throttle)"))
+            .arg(Arg::new("sort")
+                .short('S')
+                .long("sort")
+                .num_args(1..)
+                .action(clap::ArgAction::Append)
+                .help("Sort entries in each route (e.g., --sort <route> <asc|desc> <attribute_in_route>)"))
+            .arg(Arg::new("page")
+                .short('A')
+                .long("page")
+                .num_args(1)
+                .default_value("0")
+                .help("Paginate records in the GET request"))
+            .arg(Arg::new("auto_generate_data")
+                .short('X')
+                .long("auto_generate_data")
+                .num_args(0)
+                .help("Auto generate data without a .json sample file. A route schema .json file should be passed to --path"))
+            .arg(Arg::new("cors")
+                .long("cors")
+                .num_args(0)
+                .help("Enable CORS support (reads allowed domains from chimera.cors file)"))
+        )
+
+        // Args to `websocket`
+        .subcommand(
+            Command::new("websocket")
+                .about("Start WebSocket server")
+                .arg(Arg::new("port")
+                    .short('p')
+                    .long("port")
+                    .num_args(1)
+                    .default_value("8080")
+                    .help("Port for the WebSocket server"))
+                .arg(Arg::new("sort")
+                    .short('S')
+                    .long("sort")
+                    .num_args(1..)
+                    .action(clap::ArgAction::Append)
+                    .help("Sort entries in each route (e.g., --sort <route> <asc|desc> <attribute_in_route>)"))
+                .arg(Arg::new("page")
+                    .short('A')
+                    .long("page")
+                    .num_args(1)
+                    .default_value("0")
+                    .help("Paginate records in the GET request"))
+                .arg(Arg::new("cors")
+                    .long("cors")
+                    .num_args(0)
+                    .help("Enable CORS support (reads allowed domains from chimera.cors file)"))
+                .arg(Arg::new("auto_generate_data")
+                    .short('X')
+                    .long("auto_generate_data")
+                    .num_args(0)
+                    .help("Auto generate data without a .json sample file. A route schema .json file should be passed to --path"))
+        )
         .get_matches();
 
     let json_file_path = matches
         .get_one::<String>("path")
         .expect("Missing path argument")
         .to_string();
-    let api_protocol = matches
-        .get_one::<String>("protocol")
-        .expect("Invalid protocol")
-        .to_string();
-    let server_port = matches
-        .get_one::<String>("port")
-        .unwrap()
-        .parse::<u16>()
-        .expect("Invalid port number");
-    let sim_latency_str = matches
-        .get_one::<String>("latency")
-        .expect("Missing latency argument")
-        .to_string();
-    let sim_latency: u64 = sim_latency_str
-        .trim_end_matches("ms")
-        .parse::<u64>()
-        .expect("Invalid latency format");
-    let pagination_factor = matches
-        .get_one::<String>("page")
-        .unwrap()
-        .parse::<u64>()
-        .expect("Invalid page format");
-    let auto_generate_enabled = matches.get_flag("auto_generate_data");
-    let cors_enabled = matches.get_flag("cors");
     let logs_disabled = matches.get_flag("quiet");
+
+    // Default values for subcommand-specific args
+    let mut server_port = 8080;
+    let mut sim_latency = 0;
+    let mut pagination_factor = 0;
+    let mut auto_generate_enabled = false;
+    let mut cors_enabled = false;
+    let mut sort_rules: HashMap<String, (String, String)> = HashMap::new();
+    let mut mode = "http";
+
+    if let Some(http_matches) = matches.subcommand_matches("http") {
+        server_port = http_matches
+            .get_one::<String>("port")
+            .unwrap()
+            .parse::<u16>()
+            .expect("Invalid port number");
+
+        let sim_latency_str = http_matches.get_one::<String>("latency").unwrap();
+        sim_latency = sim_latency_str
+            .trim_end_matches("ms")
+            .parse::<u64>()
+            .unwrap_or(0);
+
+        pagination_factor = http_matches
+            .get_one::<String>("page")
+            .unwrap()
+            .parse::<u64>()
+            .expect("Invalid page format");
+
+        auto_generate_enabled = http_matches.get_flag("auto_generate_data");
+        cors_enabled = http_matches.get_flag("cors");
+
+        if let Some(sort_args) = http_matches.get_many::<String>("sort") {
+            let sort_list: Vec<String> = sort_args.map(|s| s.clone()).collect();
+            for sort_group in sort_list.chunks(3) {
+                if let [route, order, key] = sort_group {
+                    sort_rules.insert(route.clone(), (order.clone(), key.clone()));
+                }
+            }
+        }
+    }
+
+    if let Some(ws_matches) = matches.subcommand_matches("websocket") {
+        mode = "websocket";
+        server_port = ws_matches
+            .get_one::<String>("port")
+            .unwrap()
+            .parse::<u16>()
+            .expect("Invalid port number");
+        cors_enabled = ws_matches.get_flag("cors");
+        auto_generate_enabled = ws_matches.get_flag("auto_generate_data");
+        pagination_factor = ws_matches
+            .get_one::<String>("page")
+            .unwrap()
+            .parse::<u64>()
+            .expect("Invalid page format");
+        if let Some(sort_args) = ws_matches.get_many::<String>("sort") {
+            let sort_list: Vec<String> = sort_args.map(|s| s.clone()).collect();
+            for sort_group in sort_list.chunks(3) {
+                if let [route, order, key] = sort_group {
+                    sort_rules.insert(route.clone(), (order.clone(), key.clone()));
+                }
+            }
+        }
+    }
+
     let mut allowed_origins = Vec::new();
 
     if cors_enabled {
@@ -997,11 +419,10 @@ fn initialize_cmd() -> Result<Config, IOError> {
     let parsed_content: Value = if auto_generate_enabled {
         let schema: JsonDataGeneratorSchema = serde_json::from_str(&json_content)
             .expect("Invalid schema format for auto data generation");
-        let result = generate_json_from_schema(schema);
-        result
+        generate_json_from_schema(schema)
     } else {
         let content: Value = serde_json::from_str(&json_content).expect("Invalid Json format");
-        // println!("{:#?}", content);
+
         if let Some(routes) = content.get("routes") {
             if routes.is_array() {
                 eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
@@ -1027,31 +448,21 @@ fn initialize_cmd() -> Result<Config, IOError> {
         longest_path = key;
     }
 
-    let mut sort_rules: HashMap<String, (String, String)> = HashMap::new();
-    if let Some(sort_args) = matches.get_many::<String>("sort") {
-        let sort_list: Vec<String> = sort_args.map(|s| s.clone()).collect();
-        for sort_group in sort_list.chunks(3) {
-            if let [route, order, key] = sort_group {
-                sort_rules.insert(route.clone(), (order.clone(), key.clone()));
-            }
-        }
-    }
-
     let final_port: u16 = find_available_port(server_port);
 
     Ok(Config {
         path: json_file_path,
         port: final_port,
-        mode: api_protocol,
+        mode: mode.to_string(),
         json_value: Arc::new(RwLock::new(parsed_content)),
         latency: sim_latency,
-        sort_rules: sort_rules,
+        sort_rules,
         paginate: pagination_factor,
         max_request_path_id_length: spaces,
         max_request_path_len: longest_path,
         cors_enabled: cors_enabled,
-        logs_disabled: logs_disabled,
-        allowed_origins: allowed_origins,
+        logs_disabled,
+        allowed_origins,
     })
 }
 
@@ -1078,6 +489,11 @@ v{}
         "grpc" => {
             if let Err(e) = run_grpc_server(config_data).await {
                 eprintln!("Failed to run Tonic server: {}", e);
+            }
+        }
+        "websocket" => {
+            if let Err(e) = run_websocket_server(config_data).await {
+                eprintln!("Failed to setup websocket connection: {}", e);
             }
         }
         _ => {
