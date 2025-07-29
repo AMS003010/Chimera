@@ -26,8 +26,6 @@ pub struct AppState {
     pub latency: u64,
     pub sort_rules: HashMap<String, (String, String)>,
     pub paginate: u64,
-    pub max_request_path_id_length: usize,
-    pub max_request_path_len: usize,
     pub logs_disabled: bool,
 }
 

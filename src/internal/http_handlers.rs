@@ -1,5 +1,5 @@
 use crate::internal::chimera::{AppState, CHIMERA_LATEST_VERSION};
-use crate::internal::helpers::{compare_values, log_request, server_busy_response};
+use crate::internal::helpers::{compare_values, server_busy_response};
 use axum::{
     extract::{Path, State},
     http::{StatusCode, Uri},
@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::time::{sleep, timeout, Duration};
+use tracing::{info, warn};
 
 #[derive(Deserialize)]
 pub struct FormData {
@@ -69,16 +70,15 @@ pub async fn get_data(
             Err(_) => {
                 let elapsed = start_time.elapsed().as_millis();
                 if !state.logs_disabled {
-                    log_request(
-                        &date_time,
-                        "500",
-                        "GET",
-                        &requested_path,
-                        "Server busy !!",
-                        elapsed,
-                        state.max_request_path_len,
-                        state.max_request_path_id_length,
-                        0,
+                    warn!(
+                        date_time = date_time,
+                        status = "500",
+                        method = "GET",
+                        path = requested_path,
+                        error = "Server busy !!",
+                        elapsed_ms = elapsed,
+                        records = 0,
+                        "HTTP request"
                     );
                 }
                 return server_busy_response();
@@ -100,16 +100,14 @@ pub async fn get_data(
                     }
                     let elapsed = start_time.elapsed().as_millis();
                     if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "200",
-                            "GET",
-                            &requested_path,
-                            "false",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            value.as_array().map_or(0, |arr| arr.len()),
+                        info!(
+                            date_time = date_time,
+                            status = "200",
+                            method = "GET",
+                            path = requested_path,
+                            elapsed_ms = elapsed,
+                            records = value.as_array().map_or(0, |arr| arr.len()),
+                            "HTTP request"
                         );
                     }
                     return (StatusCode::OK, axum::Json(value)).into_response();
@@ -136,16 +134,14 @@ pub async fn get_data(
 
             let elapsed = start_time.elapsed().as_millis();
             if !state.logs_disabled {
-                log_request(
-                    &date_time,
-                    "200",
-                    "GET",
-                    &requested_path,
-                    "false",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    value.as_array().map_or(0, |arr| arr.len()),
+                info!(
+                    date_time = date_time,
+                    status = "200",
+                    method = "GET",
+                    path = requested_path,
+                    elapsed_ms = elapsed,
+                    records = value.as_array().map_or(0, |arr| arr.len()),
+                    "HTTP request"
                 );
             }
             (StatusCode::OK, axum::Json(value)).into_response()
@@ -153,16 +149,15 @@ pub async fn get_data(
         None => {
             let elapsed = start_time.elapsed().as_millis();
             if !state.logs_disabled {
-                log_request(
-                    &date_time,
-                    "404",
-                    "GET",
-                    &requested_path,
-                    "Route not registered !!",
-                    elapsed,
-                    state.max_request_path_len,
-                    state.max_request_path_id_length,
-                    0,
+                warn!(
+                    date_time = date_time,
+                    status = "404",
+                    method = "GET",
+                    path = requested_path,
+                    error = "Route not registered !!",
+                    elapsed_ms = elapsed,
+                    records = 0,
+                    "HTTP request"
                 );
             }
             (StatusCode::NOT_FOUND, "Route not registered !!").into_response()
@@ -195,16 +190,15 @@ pub async fn delete_data(
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
                     if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "DELETE",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
+                        warn!(
+                            date_time = date_time,
+                            status = "500",
+                            method = "GET",
+                            path = requested_path,
+                            error = "Server busy !!",
+                            elapsed_ms = elapsed,
+                            records = 0,
+                            "HTTP request"
                         );
                     }
                     return server_busy_response();
@@ -280,17 +274,27 @@ pub async fn delete_data(
     let (status_code, message, affected_records) = delete_result;
 
     if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "DELETE",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
+        match status_code {
+            "200" | "201" => info!(
+                date_time = date_time,
+                status = status_code,
+                method = "DELETE",
+                path = requested_path,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+            _ => warn!(
+                date_time = date_time,
+                status = status_code,
+                method = "DELETE",
+                path = requested_path,
+                error = message,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+        }
     }
 
     // Return appropriate response
@@ -328,16 +332,15 @@ pub async fn post_data(
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
                     if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "POST",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
+                        warn!(
+                            date_time = date_time,
+                            status = "500",
+                            method = "GET",
+                            path = requested_path,
+                            error = "Server busy !!",
+                            elapsed_ms = elapsed,
+                            records = 0,
+                            "HTTP request"
                         );
                     }
                     return server_busy_response();
@@ -390,17 +393,27 @@ pub async fn post_data(
     let (status_code, message, affected_records) = post_result;
 
     if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "POST",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
+        match status_code {
+            "201" => info!(
+                date_time = date_time,
+                status = status_code,
+                method = "POST",
+                path = requested_path,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+            _ => warn!(
+                date_time = date_time,
+                status = status_code,
+                method = "POST",
+                path = requested_path,
+                error = message,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+        }
     }
 
     match status_code {
@@ -437,16 +450,15 @@ pub async fn put_data(
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
                     if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "PUT",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
+                        warn!(
+                            date_time = date_time,
+                            status = "500",
+                            method = "GET",
+                            path = requested_path,
+                            error = "Server busy !!",
+                            elapsed_ms = elapsed,
+                            records = 0,
+                            "HTTP request"
                         );
                     }
                     return server_busy_response();
@@ -555,17 +567,27 @@ pub async fn put_data(
     let (status_code, message, affected_records) = put_result;
 
     if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "PUT",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
+        match status_code {
+            "200" | "201" => info!(
+                date_time = date_time,
+                status = status_code,
+                method = "PUT",
+                path = requested_path,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+            _ => warn!(
+                date_time = date_time,
+                status = status_code,
+                method = "PUT",
+                path = requested_path,
+                error = message,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+        }
     }
 
     match status_code {
@@ -604,16 +626,15 @@ pub async fn patch_data(
                 Err(_) => {
                     let elapsed = start_time.elapsed().as_millis();
                     if !state.logs_disabled {
-                        log_request(
-                            &date_time,
-                            "500",
-                            "PATCH",
-                            &requested_path,
-                            "Server busy !!",
-                            elapsed,
-                            state.max_request_path_len,
-                            state.max_request_path_id_length,
-                            0,
+                        warn!(
+                            date_time = date_time,
+                            status = "500",
+                            method = "GET",
+                            path = requested_path,
+                            error = "Server busy !!",
+                            elapsed_ms = elapsed,
+                            records = 0,
+                            "HTTP request"
                         );
                     }
                     return server_busy_response();
@@ -681,17 +702,27 @@ pub async fn patch_data(
     let (status_code, message, affected_records) = patch_result;
 
     if !state.logs_disabled {
-        log_request(
-            &date_time,
-            status_code,
-            "PATCH",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            affected_records,
-        );
+        match status_code {
+            "200" => info!(
+                date_time = date_time,
+                status = status_code,
+                method = "PATCH",
+                path = requested_path,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+            _ => warn!(
+                date_time = date_time,
+                status = status_code,
+                method = "PATCH",
+                path = requested_path,
+                error = message,
+                elapsed_ms = elapsed,
+                records = affected_records,
+                "HTTP request"
+            ),
+        }
     }
 
     match status_code {
@@ -723,16 +754,15 @@ pub async fn handle_form_submission(
     if form_data.fields.is_empty() {
         let elapsed = start_time.elapsed().as_millis();
         if !state.logs_disabled {
-            log_request(
-                &date_time,
-                "422",
-                "POST",
-                &requested_path,
-                "Fields are empty!!",
-                elapsed,
-                state.max_request_path_len,
-                state.max_request_path_id_length,
-                0,
+            warn!(
+                date_time = date_time,
+                status = "422",
+                method = "POST",
+                path = requested_path,
+                error = "Fields are empty!!",
+                elapsed_ms = elapsed,
+                records = 0,
+                "HTTP request"
             );
         }
         return (
@@ -749,16 +779,14 @@ pub async fn handle_form_submission(
 
     let elapsed = start_time.elapsed().as_millis();
     if !state.logs_disabled {
-        log_request(
-            &date_time,
-            "200",
-            "POST",
-            &requested_path,
-            "false",
-            elapsed,
-            state.max_request_path_len,
-            state.max_request_path_id_length,
-            form_data.fields.len(),
+        info!(
+            date_time = date_time,
+            status = "200",
+            method = "POST",
+            path = requested_path,
+            elapsed_ms = elapsed,
+            records = form_data.fields.len(),
+            "HTTP request"
         );
     }
     return (

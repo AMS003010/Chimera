@@ -12,19 +12,23 @@ use axum::{
     Router,
 };
 use clap::{Arg, Command};
-use colored::Colorize;
 use csv::Reader;
 use local_ip_address::local_ip;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::io::Error as IOError;
+use std::net::SocketAddr;
 use std::path::Path as Std_path;
 use std::path::Path;
 use std::process;
 use std::sync::Arc;
-use std::{net::SocketAddr};
+use tokio::fs;
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
+use tracing::{debug, error, info, warn};
+use tracing_appender::rolling;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, EnvFilter};
 
 mod internal {
     pub mod chimera;
@@ -41,12 +45,10 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
         latency: config.latency,
         sort_rules: config.sort_rules,
         paginate: config.paginate,
-        max_request_path_id_length: config.max_request_path_id_length,
-        max_request_path_len: config.max_request_path_len,
         logs_disabled: config.logs_disabled,
     });
 
-    println!("[{}] Running HTTP", "INFO".green());
+    info!("Running HTTP");
 
     let cors_layer = if config.cors_enabled {
         let allowed_origins = config
@@ -56,7 +58,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
             .collect::<Vec<_>>();
 
         if config.allowed_origins.is_empty() {
-            println!("[{}] CORS: * \n", "INFO".green());
+            info!("CORS: *");
             CorsLayer::new()
                 .allow_methods([
                     Method::GET,
@@ -70,7 +72,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
                 .allow_origin(Any)
                 .allow_credentials(false)
         } else {
-            println!("[{}] CORS: chimera.cors\n", "INFO".green());
+            info!("CORS: chimera.cors");
             CorsLayer::new()
                 .allow_methods([
                     Method::GET,
@@ -85,7 +87,7 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
                 .allow_credentials(false)
         }
     } else {
-        println!("[{}] CORS: * \n", "INFO".green());
+        info!("CORS: *");
         CorsLayer::new()
             .allow_methods([
                 Method::GET,
@@ -116,8 +118,8 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     // Display server info
     let local = "127.0.0.1";
     let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
-    println!(" - Local:     http://{}:{}", local, config.port);
-    println!(" - Network:   http://{}:{}\n", lan_ip, config.port);
+    info!("Local: http://{}:{}", local, config.port);
+    info!("Network: http://{}:{}", lan_ip, config.port);
 
     // Setup graceful shutdown
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -130,16 +132,16 @@ async fn run_axum_server(config: Config) -> Result<(), IOError> {
     .with_graceful_shutdown(shutdown_signal())
     .await
     {
-        eprintln!("Server error: {}", e);
+        error!("Server error: {}", e);
     } else {
-        println!("\nReceived shutdown signal, starting graceful shutdown...");
+        info!("Received shutdown signal, starting graceful shutdown");
     }
 
     Ok(())
 }
 
 async fn run_grpc_server(config: Config) -> Result<(), IOError> {
-    println!("{:#?}", config);
+    debug!("Config: {:#?}", config);
 
     Ok(())
 }
@@ -153,7 +155,7 @@ pub async fn run_websocket_server(config: Config) -> Result<(), Box<dyn std::err
     });
     let connections = Arc::new(RwLock::new(HashMap::new()));
 
-    println!("[{}] Running Websocket", "INFO".green());
+    info!("Running Websocket");
 
     // Create CORS layer with proper method conversion
     let cors_layer = if config.cors_enabled {
@@ -164,7 +166,7 @@ pub async fn run_websocket_server(config: Config) -> Result<(), Box<dyn std::err
             .collect::<Vec<_>>();
 
         if config.allowed_origins.is_empty() {
-            println!("[{}] CORS: * \n", "INFO".green());
+            info!("CORS: *");
             CorsLayer::new()
                 .allow_methods([
                     Method::GET,
@@ -178,7 +180,7 @@ pub async fn run_websocket_server(config: Config) -> Result<(), Box<dyn std::err
                 .allow_origin(Any)
                 .allow_credentials(false)
         } else {
-            println!("[{}] CORS: chimera.cors\n", "INFO".green());
+            info!("CORS: chimera.cors");
             CorsLayer::new()
                 .allow_methods([
                     Method::GET,
@@ -193,7 +195,7 @@ pub async fn run_websocket_server(config: Config) -> Result<(), Box<dyn std::err
                 .allow_credentials(false)
         }
     } else {
-        println!("[{}] CORS: * \n", "INFO".green());
+        info!("CORS: *");
         CorsLayer::new()
             .allow_methods([
                 Method::GET,
@@ -216,8 +218,8 @@ pub async fn run_websocket_server(config: Config) -> Result<(), Box<dyn std::err
     // Display server info
     let local = "127.0.0.1";
     let lan_ip = local_ip().unwrap_or_else(|_| local.parse().unwrap());
-    println!(" - Local:     ws://{}:{}/ws", local, config.port);
-    println!(" - Network:   ws://{}:{}/ws\n", lan_ip, config.port);
+    info!("Local: ws://{}:{}/ws", local, config.port);
+    info!("Network: ws://{}:{}/ws", lan_ip, config.port);
 
     // Modern Axum server setup
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -406,12 +408,9 @@ async fn initialize_cmd() -> Result<Config, IOError> {
                 .lines()
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
-                .collect();
+                .collect::<Vec<_>>();
         } else {
-            eprintln!(
-                "[{}] CORS enabled but chimera.cors file not found. Allowing all origins.",
-                "WARN".yellow()
-            );
+            warn!("CORS enabled but chimera.cors file not found. Allowing all origins.");
         }
     }
 
@@ -484,25 +483,23 @@ async fn initialize_cmd() -> Result<Config, IOError> {
 
                 if let Some(routes) = content.get("routes") {
                     if routes.is_array() {
-                        eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
+                        error!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
                         process::exit(1);
                     } else {
-                        eprintln!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
+                        error!("Please pass a data file .json for your routes as `auto-generate-data` is disabled");
                         process::exit(1);
                     }
                 }
 
                 if !content.is_object() {
-                    eprintln!(
-                        "Error: The given json file is a JSON Array! It should be a JSON Object"
-                    );
+                    error!("The given json file is a JSON Array! It should be a JSON Object");
                     process::exit(1);
                 }
                 content
             }
         }
         _ => {
-            eprintln!("Error: Unsupported file format. Please provide a .json or .csv file");
+            error!("Unsupported file format. Please provide a .json or .csv file");
             process::exit(1);
         }
     };
@@ -535,6 +532,24 @@ async fn initialize_cmd() -> Result<Config, IOError> {
 
 #[tokio::main]
 async fn main() -> Result<(), IOError> {
+    let config_data = initialize_cmd().await?;
+    let logs_disabled = config_data.logs_disabled;
+
+    fs::create_dir_all("/logs").await.unwrap_or_else(|e| {
+        eprintln!("Failed to create /logs directory: {}", e);
+        std::process::exit(1);
+    });
+    let file_appender = rolling::daily("/logs", "chimera.log");
+    let file_layer = fmt::layer().json().with_writer(file_appender);
+    let stdout_layer = fmt::layer()
+        .with_ansi(true)
+        .with_filter(EnvFilter::new(if logs_disabled { "off" } else { "info" }));
+
+    tracing_subscriber::registry()
+        .with(file_layer)
+        .with(stdout_layer)
+        .init();
+
     println!(
         "
 ╔═╗┬ ┬┬┌┬┐┌─┐┬─┐┌─┐
@@ -545,26 +560,25 @@ v{}
         CHIMERA_LATEST_VERSION
     );
 
-    let config_data = initialize_cmd().await?;
-
+    info!("Starting Chimera v{}", CHIMERA_LATEST_VERSION);
     match config_data.mode.as_str() {
         "http" => {
             if let Err(e) = run_axum_server(config_data).await {
-                eprintln!("Failed to run Axum server: {}", e);
+                error!("Failed to run Axum server: {}", e);
             }
         }
         "grpc" => {
             if let Err(e) = run_grpc_server(config_data).await {
-                eprintln!("Failed to run Tonic server: {}", e);
+                error!("Failed to run Tonic server: {}", e);
             }
         }
         "websocket" => {
             if let Err(e) = run_websocket_server(config_data).await {
-                eprintln!("Failed to setup websocket connection: {}", e);
+                error!("Failed to setup websocket connection: {}", e);
             }
         }
         _ => {
-            println!("PROTOCOL NOT SUPPORTED !!");
+            error!("PROTOCOL NOT SUPPORTED");
         }
     }
 

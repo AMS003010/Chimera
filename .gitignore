@@ -4,6 +4,7 @@ hi.json
 schema.json
 data.csv
 /benchmarks
+/logs
 
 # Rust stuff
 /target

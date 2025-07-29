@@ -2,9 +2,9 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use colored::*;
 use rayon::prelude::*;
 use serde_json::Value;
+use tracing::warn;
 
 pub async fn shutdown_signal() {
     // Create a future that resolves when Ctrl+C is pressed
@@ -50,70 +50,12 @@ pub fn compare_values(a: &Value, b: &Value, key: &str, order: &str) -> std::cmp:
     }
 }
 
-// Helper function for logging
-pub fn log_request(
-    date_time: &str,
-    status: &str,
-    method: &str,
-    path: &str,
-    _is_error: &str,
-    elapsed: u128,
-    key_len: usize,
-    id_len: usize,
-    obj: usize,
-) {
-    let status_display = match status {
-        "200" => "[200]".bold().blue(),
-        "404" => "[404]".bold().red(),
-        "422" => "[422]".bold().red(),
-        "500" => "[500]".bold().green(),
-        _ => "[???]".bold().yellow(),
-    };
-
-    let method_display = match method {
-        "GET" => "[GET   ]".bright_green(),
-        "DELETE" => "[DELETE]".bright_red(),
-        "PUT" => "[PUT   ]".bright_green(),
-        "PATCH" => "[PATCH ]".bright_green(),
-        "POST" => "[POST  ]".bright_green(),
-        _ => method.to_string().bright_green(),
-    };
-    let space_padding = key_len + id_len + 2 - path.len();
-    let spaces = " ".repeat(space_padding);
-
-    if _is_error != "false" {
-        println!(
-            "{} {} {} {}{}  | {}{}, {}",
-            status_display,
-            date_time.italic().dimmed(),
-            method_display,
-            path.italic(),
-            spaces,
-            elapsed.to_string().italic().dimmed(),
-            "ms".italic().dimmed(),
-            _is_error.italic().dimmed(),
-        );
-    } else {
-        println!(
-            "{} {} {} {}{}  | {}{}, {} {}",
-            status_display,
-            date_time.italic().dimmed(),
-            method_display,
-            path.italic(),
-            spaces,
-            elapsed.to_string().italic().dimmed(),
-            "ms".italic().dimmed(),
-            obj.to_string().italic().dimmed(),
-            "entries affected".italic().dimmed(),
-        );
-    }
-}
-
 // Helper function for busy response
 pub fn server_busy_response() -> Response {
+    warn!("Server busy response returned");
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        "Server is busy, try again later.",
+        "Server is busy, please try again later",
     )
         .into_response()
 }
