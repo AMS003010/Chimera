@@ -22,7 +22,7 @@ use std::path::Path as Std_path;
 use std::path::Path;
 use std::process;
 use std::sync::Arc;
-use std::{fs, net::SocketAddr};
+use std::{net::SocketAddr};
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -232,7 +232,7 @@ pub async fn run_websocket_server(config: Config) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
-fn initialize_cmd() -> Result<Config, IOError> {
+async fn initialize_cmd() -> Result<Config, IOError> {
     let matches = Command::new("Chimera - Mock SeRVeR")
         .version(CHIMERA_LATEST_VERSION)
         .author("Abhijith M S")
@@ -400,7 +400,8 @@ fn initialize_cmd() -> Result<Config, IOError> {
     if cors_enabled {
         let cors_file = "chimera.cors";
         if Std_path::new(cors_file).exists() {
-            allowed_origins = fs::read_to_string(cors_file)
+            allowed_origins = tokio::fs::read_to_string(cors_file)
+                .await
                 .unwrap_or_default()
                 .lines()
                 .map(|s| s.trim().to_string())
@@ -414,7 +415,9 @@ fn initialize_cmd() -> Result<Config, IOError> {
         }
     }
 
-    let json_content = fs::read_to_string(&json_file_path).expect("Failed to read file");
+    let json_content = tokio::fs::read_to_string(&json_file_path)
+        .await
+        .expect("Failed to read file");
 
     // Check file extension first
     let file_extension = Path::new(&json_file_path)
@@ -542,7 +545,7 @@ v{}
         CHIMERA_LATEST_VERSION
     );
 
-    let config_data = initialize_cmd()?;
+    let config_data = initialize_cmd().await?;
 
     match config_data.mode.as_str() {
         "http" => {
