@@ -5,6 +5,7 @@ schema.json
 data.csv
 /benchmarks
 /logs
+chimera.log.*
 
 # Rust stuff
 /target

@@ -22,7 +22,6 @@ use std::path::Path as Std_path;
 use std::path::Path;
 use std::process;
 use std::sync::Arc;
-use tokio::fs;
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, error, info, warn};
@@ -535,11 +534,7 @@ async fn main() -> Result<(), IOError> {
     let config_data = initialize_cmd().await?;
     let logs_disabled = config_data.logs_disabled;
 
-    fs::create_dir_all("/logs").await.unwrap_or_else(|e| {
-        eprintln!("Failed to create /logs directory: {}", e);
-        std::process::exit(1);
-    });
-    let file_appender = rolling::daily("/logs", "chimera.log");
+    let file_appender = rolling::daily(".", "chimera.log");
     let file_layer = fmt::layer().json().with_writer(file_appender);
     let stdout_layer = fmt::layer()
         .with_ansi(true)
