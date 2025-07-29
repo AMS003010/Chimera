@@ -45,7 +45,9 @@ pub async fn get_data(
     let requested_path = uri.path();
 
     // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
+    if state.latency > 0 {
+        sleep(Duration::from_millis(state.latency)).await;
+    }
 
     // Clone only the needed data immediately after acquiring lock
     let route_data = {
@@ -181,7 +183,9 @@ pub async fn delete_data(
     let requested_path = uri.path();
 
     // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
+    if state.latency > 0 {
+        sleep(Duration::from_millis(state.latency)).await;
+    }
 
     // Handle the DELETE operation
     let delete_result = {
@@ -312,7 +316,9 @@ pub async fn post_data(
     let requested_path = uri.path();
 
     // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
+    if state.latency > 0 {
+        sleep(Duration::from_millis(state.latency)).await;
+    }
 
     // Handle the POST operation
     let post_result = {
@@ -419,7 +425,9 @@ pub async fn put_data(
     let requested_path = uri.path();
 
     // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
+    if state.latency > 0 {
+        sleep(Duration::from_millis(state.latency)).await;
+    }
 
     // Handle the PUT operation
     let put_result = {
@@ -584,7 +592,9 @@ pub async fn patch_data(
     let requested_path = uri.path();
 
     // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
+    if state.latency > 0 {
+        sleep(Duration::from_millis(state.latency)).await;
+    }
 
     // Handle the PATCH operation
     let patch_result = {
@@ -706,7 +716,9 @@ pub async fn handle_form_submission(
     let requested_path = uri.path();
 
     // Add the Latency
-    sleep(Duration::from_millis(state.latency)).await;
+    if state.latency > 0 {
+        sleep(Duration::from_millis(state.latency)).await;
+    }
 
     if form_data.fields.is_empty() {
         let elapsed = start_time.elapsed().as_millis();
