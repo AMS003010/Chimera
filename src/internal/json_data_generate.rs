@@ -2,12 +2,10 @@ use chrono;
 use fake::faker::lorem::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
-use rand::rng;
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use serde::Deserialize;
-use serde_json::json;
-use serde_json::Value;
-use std::process;
+use serde_json::{json, Map, Number, Value};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct RouteStruct {
@@ -23,129 +21,64 @@ pub struct JsonDataGeneratorSchema {
 }
 
 pub fn generate_json_from_schema(schema: JsonDataGeneratorSchema) -> Value {
-    let mut result = serde_json::json!({});
-    let mut rng_instance = rng();
+    let mut rng = StdRng::from_rng(&mut rand::rng());
+    let mut result = Map::new();
 
-    let routes = &schema.routes;
-    if routes.is_empty() {
-        eprintln!(
-            "Please pass a schema file .json for your routes as `auto-generate-data` is enabled"
-        );
-        process::exit(1);
+    if schema.routes.is_empty() {
+        eprintln!("Schema file must contain at least one route when `auto-generate-data` is enabled");
+        std::process::exit(1);
     }
 
-    for route in schema.routes {
-        let mut route_data = Vec::new();
-        let null_percentage = route.null_percentage;
-
-        if !(null_percentage <= 90) {
-            eprintln!("field `null_percentage` must be between 0 and 90 [including 0 and 90]");
-            process::exit(1);
+    for route in schema.routes.iter() {
+        if route.null_percentage > 90 {
+            eprintln!("`null_percentage` for route `{}` must be between 0 and 90", route.path);
+            std::process::exit(1);
         }
 
-        for i in 0..route.no_of_entries {
-            let mut entry = serde_json::Map::new();
-
-            if let Some(schema_obj) = route.schema.as_object() {
+        let mut route_data = Vec::with_capacity(route.no_of_entries as usize);
+        if let Some(schema_obj) = route.schema.as_object() {
+            for i in 0..route.no_of_entries {
+                let mut entry = Map::new();
                 for (field_name, field_def) in schema_obj {
-                    let roll = rng_instance.random_range(0..100);
-                    if roll < null_percentage {
-                        entry.insert(field_name.clone(), json!(null));
+                    let value = if rng.random_range(0..100) < route.null_percentage {
+                        json!(null)
                     } else {
-                        let field_type = field_def
-                            .as_str()
-                            .unwrap_or_else(|| infer_type_from_name(field_name));
-                        let field_value = generate_value(field_name, field_type, field_def, i);
-                        entry.insert(field_name.clone(), field_value);
-                    }
+                        let field_type = field_def.as_str().unwrap_or_else(|| infer_type_from_name(field_name));
+                        generate_value(field_type, &mut rng, i)
+                    };
+                    entry.insert(field_name.clone(), value);
                 }
+                route_data.push(Value::Object(entry));
             }
-
-            route_data.push(Value::Object(entry));
         }
-
-        if let Some(obj) = result.as_object_mut() {
-            obj.insert(route.path, Value::Array(route_data));
-        }
+        result.insert(route.path.clone(), Value::Array(route_data));
     }
 
-    result
+    Value::Object(result)
 }
 
-fn generate_value(_field_name: &str, _field_type: &str, field_def: &Value, index: u64) -> Value {
-    let mut rng_instance = rng();
-
-    let field_type = match field_def.as_str() {
-        Some(ob) => ob,
-        None => return json!(null),
-    };
-
+fn generate_value(field_type: &str, rng: &mut StdRng, index: u64) -> Value {
     match field_type {
-        "string" | "name" | "lorem" | "integer" | "id" | "boolean" | "date" | "datetime" => {
-            generate_faker_value(field_type, &mut rng_instance, index)
-        }
-        _ => Value::String(format!(
-            "Looks like we haven't added the category `{}`",
-            field_type
-        )),
-    }
-}
-
-fn generate_faker_value(category: &str, rng: &mut impl Rng, mut index: u64) -> Value {
-    match category {
-        "name" => Value::String(Name().fake_with_rng::<String, _>(rng)),
-        "lorem" => Value::String(Paragraph(1..3).fake_with_rng::<String, _>(rng)),
-        "string" => Value::String(Word().fake_with_rng::<String, _>(rng)),
-        "id" => {
-            index = index + 1;
-            let random_id: u64 = index;
-            Value::Number(serde_json::Number::from(random_id))
-        }
-        "date" => {
-            let date = chrono::Utc::now().format("%d-%m-%Y").to_string();
-            Value::String(date)
-        }
-        "datetime" => {
-            let datetime = chrono::Utc::now().to_rfc3339();
-            Value::String(datetime)
-        }
+        "name" => Value::String(Name().fake_with_rng(rng)),
+        "lorem" => Value::String(Paragraph(1..3).fake_with_rng(rng)),
+        "string" => Value::String(Word().fake_with_rng(rng)),
+        "id" => Value::Number(Number::from(index + 1)),
+        "date" => Value::String(chrono::Utc::now().format("%d-%m-%Y").to_string()),
+        "datetime" => Value::String(chrono::Utc::now().to_rfc3339()),
         "boolean" => Value::Bool(rng.random_bool(0.5)),
-        "integer" | "number" => {
-            let num = rng.random_range(1..100);
-            Value::Number(serde_json::Number::from(num))
-        }
-        _ => Value::String(format!(
-            "Looks like we haven't added the category `{}`",
-            category
-        )),
+        "integer" | "number" => Value::Number(Number::from(rng.random_range(1..100))),
+        _ => Value::String("unsupported_type".to_string()),
     }
 }
 
 fn infer_type_from_name(field_name: &str) -> &'static str {
     let lower_name = field_name.to_lowercase();
-
-    if lower_name == "id" || lower_name.ends_with("_id") || lower_name.ends_with("id") {
-        "integer"
-    } else if lower_name.contains("date")
-        || lower_name.contains("time")
-        || lower_name == "created_on"
-        || lower_name == "updated_on"
-    {
-        "date"
-    } else if lower_name == "active"
-        || lower_name == "enabled"
-        || lower_name == "is_deleted"
-        || lower_name.starts_with("is_")
-        || lower_name.starts_with("has_")
-    {
-        "boolean"
-    } else if lower_name == "count"
-        || lower_name == "amount"
-        || lower_name == "price"
-        || lower_name == "quantity"
-    {
-        "number"
-    } else {
-        "string"
+    match lower_name.as_str() {
+        "id" | "created_by_id" | "updated_by_id" => "id",
+        name if name.ends_with("_id") || name.ends_with("id") => "id",
+        name if name.contains("date") || name == "created_on" || name == "updated_on" => "date",
+        name if name == "active" || name == "enabled" || name == "is_deleted" || name.starts_with("is_") || name.starts_with("has_") => "boolean",
+        name if name == "count" || name == "amount" || name == "price" || name == "quantity" => "number",
+        _ => "string",
     }
 }

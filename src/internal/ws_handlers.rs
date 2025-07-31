@@ -7,7 +7,6 @@ use axum::{
     response::Response,
 };
 use chrono::Utc;
-use colored::Colorize;
 use futures::StreamExt;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -15,6 +14,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::{error, info};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -44,13 +44,13 @@ pub async fn handle_websocket(
     let ip = addr.ip().to_string();
 
     if !state.logs_disabled {
-        println!(
-            "[{}] [{}] [{}] Route: {}, IP: {}",
-            Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-            connection_id.green(),
-            "CONNECT".yellow(),
-            route,
-            ip
+        info!(
+            timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+            connection_id = %connection_id,
+            action = "CONNECT",
+            route = %route,
+            ip = %ip,
+            "WebSocket connection established"
         );
     }
 
@@ -58,11 +58,12 @@ pub async fn handle_websocket(
     let data = json_data.read().await;
     if data.get(&route).is_none() {
         if !state.logs_disabled {
-            println!(
-                "[{}] [{}] [{}] Route not found",
-                Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-                connection_id.green(),
-                "REJECT".yellow()
+            info!(
+                timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                connection_id = %connection_id,
+                action = "REJECT",
+                route = %route,
+                "Route not found"
             );
         }
         return Response::builder()
@@ -117,7 +118,11 @@ pub async fn handle_socket(
     )
     .await
     {
-        eprintln!("Initial data send failed: {}", e);
+        error!(
+            connection_id = %connection_id,
+            error = %e,
+            "Initial data send failed"
+        );
         cleanup_connection(&connections, &connection_id, state).await;
         return;
     }
@@ -140,7 +145,11 @@ pub async fn handle_socket(
                         )
                         .await
                         {
-                            eprintln!("Error handling text message: {}", e);
+                            error!(
+                                connection_id = %connection_id,
+                                error = %e,
+                                "Error handling text message"
+                            );
                             break;
                         }
                     }
@@ -152,7 +161,11 @@ pub async fn handle_socket(
                     }
                     Message::Ping(data) => {
                         if let Err(e) = socket.send(Message::Pong(data)).await {
-                            eprintln!("Failed to send pong: {}", e);
+                            error!(
+                                connection_id = %connection_id,
+                                error = %e,
+                                "Failed to send pong"
+                            );
                             break;
                         }
                     }
@@ -160,7 +173,11 @@ pub async fn handle_socket(
                 }
             }
             Err(e) => {
-                eprintln!("WebSocket error for {}: {}", connection_id, e);
+                error!(
+                    connection_id = %connection_id,
+                    error = %e,
+                    "WebSocket error"
+                );
                 break;
             }
         }
@@ -217,14 +234,16 @@ pub async fn send_route_data(
     drop(data); // Release the read lock
 
     let msg = response.to_string();
-    println!(
-        "[{}] [{}] [{}] {} bytes to {}",
-        Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-        connection_id.green(),
-        "SEND".cyan(),
-        msg.len(),
-        ip
-    );
+    if !state.logs_disabled {
+        info!(
+            timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+            connection_id = %connection_id,
+            action = "SEND",
+            bytes = msg.len(),
+            ip = %ip,
+            "Sending route data"
+        );
+    }
 
     socket
         .send(Message::Text(msg))
@@ -232,24 +251,26 @@ pub async fn send_route_data(
         .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
 }
 
-// Helper: Send route data
+// Helper: Send route command
 pub async fn send_route_command(
     socket: &mut WebSocket,
     json_data: &Arc<RwLock<Value>>,
     connection_id: &str,
     ip: &str,
+    state: Arc<AppStateWs>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let data = json_data.read().await;
-
     let msg = data.to_string();
-    println!(
-        "[{}] [{}] [{}] {} bytes to {}",
-        Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-        connection_id.green(),
-        "SEND".cyan(),
-        msg.len(),
-        ip
-    );
+    if !state.logs_disabled {
+        info!(
+            timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+            connection_id = %connection_id,
+            action = "SEND",
+            bytes = msg.len(),
+            ip = %ip,
+            "Sending command response"
+        );
+    }
 
     socket
         .send(Message::Text(msg))
@@ -273,26 +294,26 @@ pub async fn handle_text_message(
         match cmd.action.as_str() {
             "refresh" => {
                 if !state.logs_disabled {
-                    println!(
-                        "[{}] [{}] [{}] {} bytes: {}",
-                        Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-                        connection_id.green(),
-                        "RECV".cyan(),
-                        text.len(),
-                        "command: refresh"
+                    info!(
+                        timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                        connection_id = %connection_id,
+                        action = "RECV",
+                        bytes = text.len(),
+                        command = "refresh",
+                        "Received command"
                     );
                 }
                 send_route_data(socket, json_data, state, route, connection_id, ip).await?;
             }
             "connections" => {
                 if !state.logs_disabled {
-                    println!(
-                        "[{}] [{}] [{}] {} bytes: {}",
-                        Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-                        connection_id.green(),
-                        "RECV".cyan(),
-                        text.len(),
-                        "command: connections"
+                    info!(
+                        timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                        connection_id = %connection_id,
+                        action = "RECV",
+                        bytes = text.len(),
+                        command = "connections",
+                        "Received command"
                     );
                 }
 
@@ -312,20 +333,20 @@ pub async fn handle_text_message(
                     }).collect::<Vec<_>>()
                 });
 
-                // Wrap in Arc<RwLock<Value>> as expected by send_route_data
+                // Wrap in Arc<RwLock<Value>> as expected by send_route_command
                 let wrapped_response = Arc::new(RwLock::new(response_value));
 
-                send_route_command(socket, &wrapped_response, connection_id, ip).await?;
+                send_route_command(socket, &wrapped_response, connection_id, ip, state).await?;
             }
             _ => {
                 if !state.logs_disabled {
-                    println!(
-                        "[{}] [{}] [{}] {} bytes: {}",
-                        Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-                        connection_id.green(),
-                        "RECV".cyan(),
-                        text.len(),
-                        "unknown command! echoing"
+                    info!(
+                        timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                        connection_id = %connection_id,
+                        action = "RECV",
+                        bytes = text.len(),
+                        command = "unknown",
+                        "Received unknown command, echoing"
                     );
                 }
                 socket.send(Message::Text(text)).await?;
@@ -333,13 +354,13 @@ pub async fn handle_text_message(
         }
     } else {
         if !state.logs_disabled {
-            println!(
-                "[{}] [{}] [{}] {} bytes: {}",
-                Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-                connection_id.green(),
-                "RECV".cyan(),
-                text.len(),
-                text
+            info!(
+                timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                connection_id = %connection_id,
+                action = "RECV",
+                bytes = text.len(),
+                message = %text,
+                "Received text message"
             );
         }
         socket.send(Message::Text(text)).await?;
@@ -350,11 +371,11 @@ pub async fn handle_text_message(
 
 // Helper: Log close reason
 pub fn log_close(connection_id: &str) {
-    println!(
-        "[{}] [{}] [{}]",
-        Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-        connection_id.green(),
-        "CLOSE".yellow()
+    info!(
+        timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+        connection_id = %connection_id,
+        action = "CLOSE",
+        "WebSocket connection closed"
     );
 }
 
@@ -366,14 +387,12 @@ pub async fn cleanup_connection(
 ) {
     if let Some(conn) = connections.write().await.remove(connection_id) {
         if !state.logs_disabled {
-            println!(
-                "[{}] [{}] [{}] Duration: {}s",
-                Utc::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(),
-                connection_id.green(),
-                "DISCONNECT".red(),
-                Utc::now()
-                    .signed_duration_since(conn.connected_at)
-                    .num_seconds()
+            info!(
+                timestamp = %Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                connection_id = %connection_id,
+                action = "DISCONNECT",
+                duration_seconds = Utc::now().signed_duration_since(conn.connected_at).num_seconds(),
+                "WebSocket connection disconnected"
             );
         }
     }
