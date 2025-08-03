@@ -1,72 +1,101 @@
-# Changelog
+# 📝 Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-## [0.6.0] - 2025-06-23
-
-### Added
-- Cross-platform binary releases for Linux, macOS, and Windows
-- Automated GitHub Actions workflow for building and releasing binaries
-- Debian package support with automated .deb generation
-- Mock API functionality with comprehensive endpoint support
-- Command-line interface with clap for easy configuration
-- Colored terminal output for better user experience
-- JSON response generation with fake data support
-- Local IP address detection and display
-- Multi-threaded request handling with rayon
-- HTTP server implementation using axum and hyper
-
-### Changed
-- Initial public release with core functionality
-
-### Security
-- Built with latest stable Rust toolchain for security best practices
-
-## [0.5.0] - 2025-06-XX
-
-### Added
-- Core mock API server implementation
-- Basic HTTP endpoint handling
-- JSON response formatting
-
-### Changed
-- Internal architecture improvements
-
-## [0.4.0] - 2025-05-XX
-
-### Added
-- Initial project structure
-- Basic CLI argument parsing
-- Core dependencies setup
+All notable changes to **Chimera** will be documented in this file.
 
 ---
 
-## Release Links
+## [v0.6.9] — *Streaming Evolution*
+**Commit:** `9985ce8`  
+**Author:** @AMS003010  
+**Date:** Latest
 
-- [0.6.0]: https://github.com/ams003010/chimera/releases/tag/v0.6.0
+### 🚀 Highlights
+- 🧵 **WebSocket mocking** — Simulate real-time bi-directional communication
+- 📊 **CSV data ingestion** — Feed structured CSV data directly into your mock APIs
+- 🤫 **Quiet execution** — Run with `--quiet` to suppress logs
 
-## Installation
+**Mock smarter. Stream faster. Build better. ⚙️**
 
-### From GitHub Releases
+---
 
-Download the appropriate binary for your platform from the [releases page](https://github.com/ams003010/chimera/releases).
+## [v0.6.2] — *The Docs Awaken*
+**Commit:** `fa511e5`  
+**Author:** @AMS003010  
+**Date:** Last month
 
-### Debian/Ubuntu
+### 📖 Highlights
+- 🌍 Launched the official documentation site: [chimera-docs.vercel.app](https://chimera-docs.vercel.app)
 
-```bash
-wget https://github.com/ams003010/chimera/releases/download/v0.6.0/chimera_0.6.0_amd64.deb
-sudo dpkg -i chimera_0.6.0_amd64.deb
-```
+Your one-stop guide to mocking everything with Chimera 🚀
 
-### From Source
+---
 
-```bash
-git clone https://github.com/ams003010/chimera.git
-cd chimera
-cargo build --release
-```
+## [v0.6.1] — *Onwards and Upwards*
+**Commit:** `5a9d01f`  
+**Author:** @AMS003010  
+**Date:** Jun 27
+
+### ✨ Highlights
+- 📦 Published on crates.io
+- 📝 Docs site added (content still in progress 😅)
+
+---
+
+## [v0.6.0] — *API Unleashed*
+**Commit:** `0b9de71`  
+**Author:** @AMS003010  
+**Date:** Jun 24
+
+### 🔧 Highlights
+- 🧭 Long path support like `/api/v2/data`
+- 🧾 Full REST support: GET, POST, PUT, PATCH, DELETE
+- 🌐 CORS enabled out of the box
+- 🧠 Improved logging
+- 📝 Form submission support
+
+Your local API just got an upgrade. 🚀
+
+---
+
+## [v0.5.0] — *Born with Data*
+**Commit:** `4db1a2a`  
+**Author:** @AMS003010  
+**Date:** Apr 15
+
+### 🔥 Highlights
+- 🔹 Auto data generation from schema definitions
+- 🔹 Null injection support for realistic incomplete data
+
+Let Chimera dream your data into reality. 🚀
+
+**Full Changelog:** [v0.2.0...v0.5.0](#)
+
+---
+
+## [v0.2.0]
+**Commit:** `a4e4985`  
+**Author:** @AMS003010  
+**Date:** Mar 30
+
+### 🚀 Highlights
+- 🔥 Added POST support
+- 🔥 Better logging
+
+---
+
+## [v0.1.0] — *JSON, Supercharged!*
+**Commit:** `62376aa`  
+**Author:** @AMS003010  
+**Date:** Mar 25
+
+### 🧪 Initial Release
+- 🔥 Custom Data Path: `--path data.json`
+- 🔥 Sorting & Pagination: `--sort users asc`, `--page 10`
+- 🔥 Simulated Latency: `--latency 100ms`
+
+⚠️ Binary currently only for Windows-amd64
+
+📜 [Docs](#) | 🐛 [Issues](#)
+
+---
+
